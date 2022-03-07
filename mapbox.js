@@ -1,4 +1,4 @@
-import { mapBoxKey } from "../config.js";
+import { mapBoxKey, nextZenKey } from "../config.js";
 
 // https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#ECMAScript_.28JavaScript.2FActionScript.2C_etc..29
 
@@ -73,15 +73,22 @@ function convertHeight(img) {
 }
 
 async function fetchElevationTile(x, y, z) {
-  const url = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}.pngraw?access_token=${mapBoxKey}`;
+  // const url = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}.pngraw?access_token=${mapBoxKey}`;
   // const url = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}@2x.pngraw?access_token=${mapBoxKey}`;
   //const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/${z}/${x}/${y}?access_token=${mapBoxKey}`;
   //const url = `https://a.tiles.mapbox.com/styles/v1/mapbox/light-v10/tiles/${z}/${x}/${y}@2x?access_token=${mapBoxKey}`;
+
+  const url = `https://tile.nextzen.org/tilezen/terrain/v1/512/terrarium/${z}/${x}/${y}.png?api_key=${nextZenKey}`;
+
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.src = url;
   await img.decode();
   return img; //convertHeight(img);
+}
+
+function getNextZenHeight(r, g, b) {
+  return r * 1 + g / 256 + b / 65536;
 }
 
 export {
@@ -90,5 +97,6 @@ export {
   pointToTileFraction,
   fetchElevationTile,
   tileToLatLng,
+  getNextZenHeight,
   getHeight,
 };
