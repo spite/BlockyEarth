@@ -5,7 +5,7 @@ import "./deps/tweet-button.js";
 import { loadTile } from "./google-maps.js";
 import {
   fetchElevationTile,
-  getHeight,
+  getNextZenHeight,
   latToTile,
   lngToTile,
 } from "./mapbox.js";
@@ -32,6 +32,7 @@ import {
 } from "./third_party/three.module.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
+import { mod } from "./Maf.js";
 
 const speed = twixt.create("speed", 1);
 const textureScale = twixt.create("scale", 2);
@@ -70,7 +71,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
 const directLight = new DirectionalLight(0xffffff);
-directLight.position.set(2, 2, 2);
+directLight.position.set(2, 1, 2);
 scene.add(directLight);
 directLight.castShadow = true;
 directLight.shadow.mapSize.width = 2048;
@@ -78,14 +79,15 @@ directLight.shadow.mapSize.height = 2048;
 directLight.shadow.bias = -0.0001;
 window.l = directLight;
 
-// const light = new HemisphereLight(0xffffff, 0x888888);
-// light.position.set(0, 1, 0);
-// scene.add(light);
+const light = new HemisphereLight(0xffffff, 0x888888, 0.2);
+light.position.set(0, 1, 0);
+scene.add(light);
 
 let currentLocation;
 
-const width = 512;
-const height = 512;
+const width = 1024;
+const height = 1024;
+const step = 8;
 
 const colorCanvas = document.createElement("canvas");
 colorCanvas.width = width;
@@ -112,17 +114,20 @@ colorCanvas.style.zIndex = "10";
 colorCanvas.style.width = "512px";
 colorCtx.translate(0.5 * colorCanvas.width, 0.5 * colorCanvas.height);
 
-const boxScale = 0.01;
+const boxScale = 0.01 * step;
 const geo = new BoxBufferGeometry(boxScale, boxScale, boxScale);
 const mesh = new InstancedMesh(
   geo,
   new MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0 }),
-  width * height
+  (width * height) / step
 );
 scene.add(mesh);
 mesh.instanceMatrix.setUsage(DynamicDrawUsage);
 // mesh.instanceColor.setUsage(DynamicDrawUsage);
 mesh.castShadow = mesh.receiveShadow = true;
+
+let verticalScale = 50;
+window.verticalScale = verticalScale;
 
 const dummy = new Object3D();
 function processMaps() {
@@ -140,31 +145,46 @@ function processMaps() {
   );
 
   let i = 0;
+  let min = Number.MAX_SAFE_INTEGER;
+  let max = Number.MIN_SAFE_INTEGER;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const ptr = (y * width + x) * 4;
-      const h =
-        getHeight(
-          heightData.data[ptr],
-          heightData.data[ptr + 1],
-          heightData.data[ptr + 2]
-        ) / 100;
+      const h = getNextZenHeight(
+        heightData.data[ptr],
+        heightData.data[ptr + 1],
+        heightData.data[ptr + 2]
+      );
+      min = Math.min(min, h);
+      max = Math.max(max, h);
+    }
+  }
+
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
+      const ptr = (y * width + x) * 4;
+      let h = getNextZenHeight(
+        heightData.data[ptr],
+        heightData.data[ptr + 1],
+        heightData.data[ptr + 2]
+      );
+      h = 1 + ((h - min) / (max - min)) * window.verticalScale;
       const c = new Color(
         colorData.data[ptr] / 255,
         colorData.data[ptr + 1] / 255,
         colorData.data[ptr + 2] / 255
       );
       dummy.position
-        .set(x - 0.5 * width, 0, y - 0.5 * height)
+        .set((x - 0.5 * width) / step, 0.5 * h, (y - 0.5 * height) / step)
         .multiplyScalar(boxScale);
-      dummy.position.y = h / 10;
-      dummy.scale.set(1, 10, 1);
+      dummy.scale.set(1, h, 1);
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
       mesh.setColorAt(i, c);
       i++;
     }
   }
+  // mesh.position.y = -max; //(max - min) / 2;
   mesh.instanceMatrix.needsUpdate = true;
   mesh.instanceColor.needsUpdate = true;
 }
@@ -177,11 +197,14 @@ async function populateColorMap(lat, lng, zoom) {
 
   const promises = [];
 
+  const maxW = Math.pow(2, zoom);
+  const maxH = Math.pow(2, zoom);
+
   for (let y = -3; y < +3; y++) {
     for (let x = -3; x < +3; x++) {
       promises.push(
         new Promise(async (resolve, reject) => {
-          const c = await loadTile(bx - x, by - y, zoom);
+          const c = await loadTile(mod(bx - x, maxW), mod(by - y, maxH), zoom);
           const dx = -(x + (cx % 1)) * c.naturalWidth;
           const dy = -(y + (cy % 1)) * c.naturalHeight;
           colorCtx.drawImage(c, dx, dy);
@@ -202,12 +225,18 @@ async function populateHeightMap(lat, lng, zoom) {
   const by = Math.floor(cy);
 
   const promises = [];
+  const maxW = Math.pow(2, zoom);
+  const maxH = Math.pow(2, zoom);
 
   for (let y = -2; y < +2; y++) {
     for (let x = -2; x < +2; x++) {
       promises.push(
         new Promise(async (resolve, reject) => {
-          const c = await fetchElevationTile(bx - x, by - y, zoom);
+          const c = await fetchElevationTile(
+            mod(bx - x, maxW),
+            mod(by - y, maxH),
+            zoom
+          );
           const dx = -(x + (cx % 1)) * c.naturalWidth;
           const dy = -(y + (cy % 1)) * c.naturalHeight;
           heightCtx.drawImage(c, dx, dy);
