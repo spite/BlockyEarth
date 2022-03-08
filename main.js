@@ -29,6 +29,7 @@ import {
   MeshLambertMaterial,
   HemisphereLight,
   MeshPhongMaterial,
+  PCFSoftShadowMap,
 } from "./third_party/three.module.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
@@ -61,6 +62,7 @@ renderer.setPixelRatio(window.devicePixelRatio);
 document.body.append(renderer.domElement);
 
 renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = PCFSoftShadowMap;
 
 const scene = new Scene();
 const camera = new PerspectiveCamera(75, 1, 0.01, 1000);
@@ -71,11 +73,19 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
 const directLight = new DirectionalLight(0xffffff);
-directLight.position.set(2, 1, 2);
+directLight.position.set(-2, 1, -2);
 scene.add(directLight);
 directLight.castShadow = true;
 directLight.shadow.mapSize.width = 2048;
 directLight.shadow.mapSize.height = 2048;
+const d = 8;
+directLight.shadow.camera.left = -d;
+directLight.shadow.camera.right = d;
+directLight.shadow.camera.top = d;
+directLight.shadow.camera.bottom = -d;
+directLight.shadow.camera.near = -10;
+directLight.shadow.camera.far = 10;
+
 directLight.shadow.bias = -0.0001;
 window.l = directLight;
 
@@ -115,16 +125,21 @@ colorCanvas.style.width = "512px";
 colorCtx.translate(0.5 * colorCanvas.width, 0.5 * colorCanvas.height);
 
 const boxScale = 0.01 * step;
-const geo = new BoxBufferGeometry(boxScale, boxScale, boxScale);
+const geo = new BoxBufferGeometry(boxScale, boxScale, boxScale, 5, 5, 5);
 const mesh = new InstancedMesh(
   geo,
-  new MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0 }),
+  new MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.1 }),
   (width * height) / step
 );
 scene.add(mesh);
 mesh.instanceMatrix.setUsage(DynamicDrawUsage);
 // mesh.instanceColor.setUsage(DynamicDrawUsage);
 mesh.castShadow = mesh.receiveShadow = true;
+
+const c = new Color();
+for (let i = 0; i < mesh.count; i++) {
+  mesh.setColorAt(i, c);
+}
 
 let verticalScale = 50;
 window.verticalScale = verticalScale;
@@ -147,8 +162,8 @@ function processMaps() {
   let i = 0;
   let min = Number.MAX_SAFE_INTEGER;
   let max = Number.MIN_SAFE_INTEGER;
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
       const ptr = (y * width + x) * 4;
       const h = getNextZenHeight(
         heightData.data[ptr],
@@ -160,6 +175,8 @@ function processMaps() {
     }
   }
 
+  let min2 = Number.MAX_SAFE_INTEGER;
+  let max2 = Number.MIN_SAFE_INTEGER;
   for (let y = 0; y < height; y += step) {
     for (let x = 0; x < width; x += step) {
       const ptr = (y * width + x) * 4;
@@ -168,7 +185,11 @@ function processMaps() {
         heightData.data[ptr + 1],
         heightData.data[ptr + 2]
       );
-      h = 1 + ((h - min) / (max - min)) * window.verticalScale;
+      h = ((h - min) / (max - min)) * window.verticalScale;
+      min2 = Math.min(min2, h);
+      max2 = Math.max(max2, h);
+      h = Math.floor(h / 0.5) * 0.5;
+      h = 1 + h;
       const c = new Color(
         colorData.data[ptr] / 255,
         colorData.data[ptr + 1] / 255,
@@ -184,7 +205,7 @@ function processMaps() {
       i++;
     }
   }
-  // mesh.position.y = -max; //(max - min) / 2;
+  console.log(min2, max2);
   mesh.instanceMatrix.needsUpdate = true;
   mesh.instanceColor.needsUpdate = true;
 }
@@ -378,7 +399,7 @@ function render() {
   time += (now - prevTime) * speed.value;
   prevTime = now;
 
-  // renderer.render(scene, camera);
+  // renderer.render(scene, directLight.shadow.camera);
   renderer.render(scene, camera);
   renderer.setAnimationLoop(render);
 }
