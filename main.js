@@ -33,7 +33,7 @@ import {
 } from "./third_party/three.module.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
-import { mod } from "./Maf.js";
+import { mod, randomInRange } from "./Maf.js";
 
 const speed = twixt.create("speed", 1);
 const textureScale = twixt.create("scale", 2);
@@ -97,7 +97,7 @@ let currentLocation;
 
 const width = 1024;
 const height = 1024;
-const step = 8;
+const step = 1;
 
 const colorCanvas = document.createElement("canvas");
 colorCanvas.width = width;
@@ -188,7 +188,7 @@ function processMaps() {
       h = ((h - min) / (max - min)) * window.verticalScale;
       min2 = Math.min(min2, h);
       max2 = Math.max(max2, h);
-      h = Math.floor(h / 0.5) * 0.5;
+      // h = Math.floor(h / 0.5) * 0.5;
       h = 1 + h;
       const c = new Color(
         colorData.data[ptr] / 255,
