@@ -30,6 +30,7 @@ import {
   HemisphereLight,
   MeshPhongMaterial,
   PCFSoftShadowMap,
+  AmbientLight,
 } from "./third_party/three.module.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
@@ -93,11 +94,14 @@ const light = new HemisphereLight(0xffffff, 0x888888, 0.2);
 light.position.set(0, 1, 0);
 scene.add(light);
 
+const ambient = new AmbientLight(0x404040, 1);
+scene.add(ambient);
+
 let currentLocation;
 
 const width = 1024;
 const height = 1024;
-const step = 1;
+const step = 8;
 
 const colorCanvas = document.createElement("canvas");
 colorCanvas.width = width;
@@ -188,7 +192,7 @@ function processMaps() {
       h = ((h - min) / (max - min)) * window.verticalScale;
       min2 = Math.min(min2, h);
       max2 = Math.max(max2, h);
-      // h = Math.floor(h / 0.5) * 0.5;
+      h = Math.floor(h / 0.5) * 0.5;
       h = 1 + h;
       const c = new Color(
         colorData.data[ptr] / 255,
