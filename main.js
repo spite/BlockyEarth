@@ -31,10 +31,16 @@ import {
   MeshPhongMaterial,
   PCFSoftShadowMap,
   AmbientLight,
+  Float32BufferAttribute,
+  InstancedBufferAttribute,
 } from "./third_party/three.module.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
-import { mod, randomInRange } from "./Maf.js";
+import { mod, randomInRange } from "./modules/Maf.js";
+import { SSAO } from "./SSAO.js";
+import { RoundedBoxGeometry } from "./third_party/RoundedBoxGeometry.js";
+
+const ssao = new SSAO();
 
 const speed = twixt.create("speed", 1);
 const textureScale = twixt.create("scale", 2);
@@ -129,14 +135,28 @@ colorCanvas.style.width = "512px";
 colorCtx.translate(0.5 * colorCanvas.width, 0.5 * colorCanvas.height);
 
 const boxScale = 0.01 * step;
-const geo = new BoxBufferGeometry(boxScale, boxScale, boxScale, 5, 5, 5);
+//const geo = new BoxBufferGeometry(boxScale, boxScale, boxScale); //, 5, 5, 5);
+const geo = new RoundedBoxGeometry(
+  boxScale,
+  boxScale,
+  boxScale,
+  boxScale / 10,
+  2
+); //, 5, 5, 5);
 const mesh = new InstancedMesh(
   geo,
   new MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.1 }),
-  (width * height) / step
+  (width / step) * (height / step)
 );
 scene.add(mesh);
 mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+mesh.geometry.setAttribute(
+  "height",
+  new InstancedBufferAttribute(
+    new Float32Array((width / step) * (height / step)),
+    1
+  )
+);
 // mesh.instanceColor.setUsage(DynamicDrawUsage);
 mesh.castShadow = mesh.receiveShadow = true;
 
@@ -163,7 +183,6 @@ function processMaps() {
     heightCanvas.height
   );
 
-  let i = 0;
   let min = Number.MAX_SAFE_INTEGER;
   let max = Number.MIN_SAFE_INTEGER;
   for (let y = 0; y < height; y += step) {
@@ -179,8 +198,10 @@ function processMaps() {
     }
   }
 
+  const heights = mesh.geometry.attributes.height.array;
   let min2 = Number.MAX_SAFE_INTEGER;
   let max2 = Number.MIN_SAFE_INTEGER;
+  let i = 0;
   for (let y = 0; y < height; y += step) {
     for (let x = 0; x < width; x += step) {
       const ptr = (y * width + x) * 4;
@@ -200,9 +221,9 @@ function processMaps() {
         colorData.data[ptr + 2] / 255
       );
       dummy.position
-        .set((x - 0.5 * width) / step, 0.5 * h, (y - 0.5 * height) / step)
+        .set((x - 0.5 * width) / step, 0, (y - 0.5 * height) / step)
         .multiplyScalar(boxScale);
-      dummy.scale.set(1, h, 1);
+      heights[i] = h * boxScale;
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
       mesh.setColorAt(i, c);
@@ -212,6 +233,7 @@ function processMaps() {
   console.log(min2, max2);
   mesh.instanceMatrix.needsUpdate = true;
   mesh.instanceColor.needsUpdate = true;
+  mesh.geometry.attributes.height.needsUpdate = true;
 }
 
 async function populateColorMap(lat, lng, zoom) {
@@ -301,6 +323,8 @@ function resize() {
   renderer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  const dPR = renderer.getPixelRatio();
+  ssao.setSize(w, h, dPR);
 }
 
 window.addEventListener("resize", resize);
@@ -404,7 +428,9 @@ function render() {
   prevTime = now;
 
   // renderer.render(scene, directLight.shadow.camera);
-  renderer.render(scene, camera);
+  // renderer.render(scene, camera);
+  ssao.render(renderer, scene, camera);
+
   renderer.setAnimationLoop(render);
 }
 
