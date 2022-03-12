@@ -33,12 +33,14 @@ import {
   AmbientLight,
   Float32BufferAttribute,
   InstancedBufferAttribute,
+  Vector3,
 } from "./third_party/three.module.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
 import { mod, randomInRange } from "./modules/Maf.js";
 import { SSAO } from "./SSAO.js";
 import { RoundedBoxGeometry } from "./third_party/RoundedBoxGeometry.js";
+import { generateRoundedPrismGeometry } from "./RoundedPrismGeomtry.js";
 
 const ssao = new SSAO();
 
@@ -136,26 +138,79 @@ colorCtx.translate(0.5 * colorCanvas.width, 0.5 * colorCanvas.height);
 
 const boxScale = 0.01 * step;
 //const geo = new BoxBufferGeometry(boxScale, boxScale, boxScale); //, 5, 5, 5);
-const geo = new RoundedBoxGeometry(
-  boxScale,
-  boxScale,
-  boxScale,
-  boxScale / 10,
-  2
-); //, 5, 5, 5);
+// const geo = new RoundedBoxGeometry(
+//   boxScale,
+//   boxScale,
+//   boxScale,
+//   boxScale / 50,
+//   1
+// ); //, 5, 5, 5);
+const geo = generateRoundedPrismGeometry(boxScale);
+
+// const points = [];
+// const dummy = new Object3D();
+
+// for (let y = 0; y < HEIGHT; y++) {
+//   for (let x = 0; x < WIDTH; x++) {
+//     dummy.position.set(x / WIDTH, 0, ((y / HEIGHT) * f) / 2);
+//     if (y % 2 === 1) {
+//       dummy.position.x += s / 2;
+//       // dummy.position.y += s / 4;
+//     }
+//     const d = (dummy.position.x - 0.5) ** 2 + (dummy.position.z - 0.5) ** 2;
+//     if (d < 0.125) {
+//       points.push(dummy.position.clone());
+//     }
+//   }
+// }
+
+const points = [];
+const v = new Vector3();
+const dummy = new Object3D();
+// for (let y = 0; y < height; y += step) {
+//   for (let x = 0; x < width; x += step) {
+//     const ptr = (y * width + x) * 4;
+//     v.set(
+//       (x - 0.5 * width) / step,
+//       0,
+//       (y - 0.5 * height) / step
+//     ).multiplyScalar(boxScale);
+//     points.push({ ptr, v: v.clone() });
+//   }
+// }
+
+const f = Math.sqrt(3) / 2;
+const fstep = step * f;
+let row = 0;
+for (let y = 0; y < height; y += fstep) {
+  for (let x = 0; x < width; x += step) {
+    const ptr = (Math.round(y) * width + x) * 4;
+    v.set(
+      (x - 0.5 * width) / step,
+      0,
+      (y - 0.5 * height) / step
+    ).multiplyScalar(boxScale);
+    if (row % 2 === 1) {
+      v.x += boxScale / 2;
+    }
+    const d = v.length();
+    if (d < 0.5 * width * boxScale) {
+      points.push({ ptr, v: v.clone() });
+    }
+  }
+  row++;
+}
+
 const mesh = new InstancedMesh(
   geo,
   new MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.1 }),
-  (width / step) * (height / step)
+  points.length
 );
 scene.add(mesh);
 mesh.instanceMatrix.setUsage(DynamicDrawUsage);
 mesh.geometry.setAttribute(
   "height",
-  new InstancedBufferAttribute(
-    new Float32Array((width / step) * (height / step)),
-    1
-  )
+  new InstancedBufferAttribute(new Float32Array(points.length), 1)
 );
 // mesh.instanceColor.setUsage(DynamicDrawUsage);
 mesh.castShadow = mesh.receiveShadow = true;
@@ -165,10 +220,18 @@ for (let i = 0; i < mesh.count; i++) {
   mesh.setColorAt(i, c);
 }
 
-let verticalScale = 50;
+let verticalScale = 500 / step;
 window.verticalScale = verticalScale;
 
-const dummy = new Object3D();
+let i = 0;
+for (const p of points) {
+  dummy.position.copy(p.v);
+  dummy.updateMatrix();
+  mesh.setMatrixAt(i, dummy.matrix);
+  i++;
+}
+mesh.instanceMatrix.needsUpdate = true;
+
 function processMaps() {
   const colorData = colorCtx.getImageData(
     0,
@@ -185,53 +248,42 @@ function processMaps() {
 
   let min = Number.MAX_SAFE_INTEGER;
   let max = Number.MIN_SAFE_INTEGER;
-  for (let y = 0; y < height; y += step) {
-    for (let x = 0; x < width; x += step) {
-      const ptr = (y * width + x) * 4;
-      const h = getNextZenHeight(
-        heightData.data[ptr],
-        heightData.data[ptr + 1],
-        heightData.data[ptr + 2]
-      );
-      min = Math.min(min, h);
-      max = Math.max(max, h);
-    }
+  for (const p of points) {
+    const h = getNextZenHeight(
+      heightData.data[p.ptr],
+      heightData.data[p.ptr + 1],
+      heightData.data[p.ptr + 2]
+    );
+    min = Math.min(min, h);
+    max = Math.max(max, h);
   }
 
   const heights = mesh.geometry.attributes.height.array;
   let min2 = Number.MAX_SAFE_INTEGER;
   let max2 = Number.MIN_SAFE_INTEGER;
   let i = 0;
-  for (let y = 0; y < height; y += step) {
-    for (let x = 0; x < width; x += step) {
-      const ptr = (y * width + x) * 4;
-      let h = getNextZenHeight(
-        heightData.data[ptr],
-        heightData.data[ptr + 1],
-        heightData.data[ptr + 2]
-      );
-      h = ((h - min) / (max - min)) * window.verticalScale;
-      min2 = Math.min(min2, h);
-      max2 = Math.max(max2, h);
-      h = Math.floor(h / 0.5) * 0.5;
-      h = 1 + h;
-      const c = new Color(
-        colorData.data[ptr] / 255,
-        colorData.data[ptr + 1] / 255,
-        colorData.data[ptr + 2] / 255
-      );
-      dummy.position
-        .set((x - 0.5 * width) / step, 0, (y - 0.5 * height) / step)
-        .multiplyScalar(boxScale);
-      heights[i] = h * boxScale;
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
-      mesh.setColorAt(i, c);
-      i++;
-    }
+  for (const p of points) {
+    let h = getNextZenHeight(
+      heightData.data[p.ptr],
+      heightData.data[p.ptr + 1],
+      heightData.data[p.ptr + 2]
+    );
+    h = ((h - min) / (max - min)) * window.verticalScale;
+    min2 = Math.min(min2, h);
+    max2 = Math.max(max2, h);
+    // h = Math.floor(h / 0.5) * 0.5;
+    h = 1 + h;
+    const c = new Color(
+      colorData.data[p.ptr] / 255,
+      colorData.data[p.ptr + 1] / 255,
+      colorData.data[p.ptr + 2] / 255
+    );
+
+    heights[i] = h * boxScale;
+    mesh.setColorAt(i, c);
+    i++;
   }
-  console.log(min2, max2);
-  mesh.instanceMatrix.needsUpdate = true;
+
   mesh.instanceColor.needsUpdate = true;
   mesh.geometry.attributes.height.needsUpdate = true;
 }
