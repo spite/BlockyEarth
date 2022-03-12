@@ -88,10 +88,8 @@ void main() {
 
   vec3 c = vColor;
   vec3 modColor = rgb2hsv(c);
-  modColor.x += .01 * diffuse;
-  // modColor.y += .1 * diffuse;
-  // modColor = clamp(modColor, vec3(0.), vec3(1.));
-  modColor.z += specular;
+  modColor.z += .1 * diffuse;
+  modColor.z += .1  * specular;
   modColor = hsv2rgb(modColor);
 
   // modColor = vec3(diffuse + specular);
@@ -150,7 +148,7 @@ vec3 czm_saturation(vec3 rgb, float adjustment)
 }
 
 void main() {
-  // fragColor = texture(colorMap, vUv);
+  // fragColor = texture(normalMap, vUv);
   // return;
 
   vec2 size = vec2(textureSize(colorMap, 0));
