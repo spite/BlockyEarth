@@ -194,7 +194,7 @@ for (let y = 0; y < height; y += fstep) {
       v.x += boxScale / 2;
     }
     const d = v.length();
-    if (d < 0.5 * width * boxScale) {
+    if (d < 0.05 * width * boxScale) {
       points.push({ ptr, v: v.clone() });
     }
   }
