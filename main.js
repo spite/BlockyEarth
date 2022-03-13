@@ -41,6 +41,7 @@ import { mod, randomInRange } from "./modules/Maf.js";
 import { SSAO } from "./SSAO.js";
 import { RoundedBoxGeometry } from "./third_party/RoundedBoxGeometry.js";
 import { generateRoundedPrismGeometry } from "./RoundedPrismGeomtry.js";
+import { generatePlasticBrickGeometry } from "./PlasticBrickGeometry.js";
 
 const ssao = new SSAO();
 
@@ -145,61 +146,45 @@ const boxScale = 0.01 * step;
 //   boxScale / 50,
 //   1
 // ); //, 5, 5, 5);
-const geo = generateRoundedPrismGeometry(boxScale);
-
-// const points = [];
-// const dummy = new Object3D();
-
-// for (let y = 0; y < HEIGHT; y++) {
-//   for (let x = 0; x < WIDTH; x++) {
-//     dummy.position.set(x / WIDTH, 0, ((y / HEIGHT) * f) / 2);
-//     if (y % 2 === 1) {
-//       dummy.position.x += s / 2;
-//       // dummy.position.y += s / 4;
-//     }
-//     const d = (dummy.position.x - 0.5) ** 2 + (dummy.position.z - 0.5) ** 2;
-//     if (d < 0.125) {
-//       points.push(dummy.position.clone());
-//     }
-//   }
-// }
+// const geo = generateRoundedPrismGeometry(boxScale);
+const geo = generatePlasticBrickGeometry(boxScale, 2);
 
 const points = [];
 const v = new Vector3();
 const dummy = new Object3D();
-// for (let y = 0; y < height; y += step) {
-//   for (let x = 0; x < width; x += step) {
-//     const ptr = (y * width + x) * 4;
-//     v.set(
-//       (x - 0.5 * width) / step,
-//       0,
-//       (y - 0.5 * height) / step
-//     ).multiplyScalar(boxScale);
-//     points.push({ ptr, v: v.clone() });
-//   }
-// }
-
-const f = Math.sqrt(3) / 2;
-const fstep = step * f;
-let row = 0;
-for (let y = 0; y < height; y += fstep) {
+for (let y = 0; y < height; y += step) {
   for (let x = 0; x < width; x += step) {
-    const ptr = (Math.round(y) * width + x) * 4;
+    const ptr = (y * width + x) * 4;
     v.set(
       (x - 0.5 * width) / step,
       0,
       (y - 0.5 * height) / step
     ).multiplyScalar(boxScale);
-    if (row % 2 === 1) {
-      v.x += boxScale / 2;
-    }
-    const d = v.length();
-    if (d < 0.05 * width * boxScale) {
-      points.push({ ptr, v: v.clone() });
-    }
+    points.push({ ptr, v: v.clone() });
   }
-  row++;
 }
+
+// const f = Math.sqrt(3) / 2;
+// const fstep = step * f;
+// let row = 0;
+// for (let y = 0; y < height; y += fstep) {
+//   for (let x = 0; x < width; x += step) {
+//     const ptr = (Math.floor(y) * width + Math.floor(x)) * 4;
+//     v.set(
+//       (x - 0.5 * width) / step,
+//       0,
+//       (y - 0.5 * height) / step
+//     ).multiplyScalar(boxScale);
+//     if (row % 2 === 1) {
+//       v.x += boxScale / 2;
+//     }
+//     const d = v.length();
+//     if (d < (0.5 * width * boxScale) / step) {
+//       points.push({ ptr, v: v.clone() });
+//     }
+//   }
+//   row++;
+// }
 
 const mesh = new InstancedMesh(
   geo,
@@ -207,7 +192,7 @@ const mesh = new InstancedMesh(
   points.length
 );
 scene.add(mesh);
-mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+// mesh.instanceMatrix.setUsage(DynamicDrawUsage);
 mesh.geometry.setAttribute(
   "height",
   new InstancedBufferAttribute(new Float32Array(points.length), 1)
@@ -254,9 +239,13 @@ function processMaps() {
       heightData.data[p.ptr + 1],
       heightData.data[p.ptr + 2]
     );
+    if (isNaN(h)) {
+      debugger;
+    }
     min = Math.min(min, h);
     max = Math.max(max, h);
   }
+  console.log(min, max);
 
   const heights = mesh.geometry.attributes.height.array;
   let min2 = Number.MAX_SAFE_INTEGER;
@@ -271,7 +260,7 @@ function processMaps() {
     h = ((h - min) / (max - min)) * window.verticalScale;
     min2 = Math.min(min2, h);
     max2 = Math.max(max2, h);
-    // h = Math.floor(h / 0.5) * 0.5;
+    h = Math.floor(h / 0.5) * 0.5;
     h = 1 + h;
     const c = new Color(
       colorData.data[p.ptr] / 255,
