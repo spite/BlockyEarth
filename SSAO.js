@@ -148,9 +148,6 @@ vec3 czm_saturation(vec3 rgb, float adjustment)
 }
 
 void main() {
-  // fragColor = texture(normalMap, vUv);
-  // return;
-
   vec2 size = vec2(textureSize(colorMap, 0));
   vec2 inc = 1. / size;
 
