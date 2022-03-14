@@ -110,7 +110,7 @@ let currentLocation;
 
 const width = 1024;
 const height = 1024;
-const step = 16;
+const step = 8;
 
 const colorCanvas = document.createElement("canvas");
 colorCanvas.width = width;
