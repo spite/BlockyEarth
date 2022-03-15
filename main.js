@@ -3,45 +3,23 @@ import "./deps/progress.js";
 import "./deps/snackbar.js";
 import "./deps/tweet-button.js";
 import { loadTile } from "./google-maps.js";
-import {
-  fetchElevationTile,
-  getNextZenHeight,
-  latToTile,
-  lngToTile,
-} from "./mapbox.js";
+import { fetchElevationTile, latToTile, lngToTile } from "./mapbox.js";
 import {
   WebGLRenderer,
   Scene,
   PerspectiveCamera,
-  Mesh,
-  CanvasTexture,
-  RepeatWrapping,
-  TorusKnotBufferGeometry,
   DirectionalLight,
-  InstancedMesh,
-  BoxBufferGeometry,
-  MeshNormalMaterial,
-  Object3D,
-  Color,
-  MeshBasicMaterial,
-  MeshStandardMaterial,
-  DynamicDrawUsage,
-  MeshLambertMaterial,
+  TextureLoader,
   HemisphereLight,
-  MeshPhongMaterial,
   PCFSoftShadowMap,
   AmbientLight,
-  Float32BufferAttribute,
-  InstancedBufferAttribute,
-  Vector3,
 } from "./third_party/three.module.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
 import { mod, randomInRange } from "./modules/Maf.js";
 import { SSAO } from "./SSAO.js";
-import { RoundedBoxGeometry } from "./third_party/RoundedBoxGeometry.js";
-import { generateRoundedPrismGeometry } from "./RoundedPrismGeomtry.js";
-import { generatePlasticBrickGeometry } from "./PlasticBrickGeometry.js";
+import { HeightMap } from "./HeightMap.js";
+import { EquirectangularToCubemap } from "./modules/EquirectangularToCubemap.js";
 
 const ssao = new SSAO();
 
@@ -71,7 +49,19 @@ const renderer = new WebGLRenderer({
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.append(renderer.domElement);
 
-renderer.shadowMap.enabled = true;
+async function loadEnvMap() {
+  return new Promise((resolve, reject) => {
+    const loader = new TextureLoader();
+    const envMap = loader.load("./assets/studio_small_08.jpg", () => {
+      const equiToCube = new EquirectangularToCubemap(renderer);
+      const cubemap = equiToCube.convert(envMap, 1024);
+      ssao.shader.uniforms.envMap.value = cubemap;
+      resolve();
+    });
+  });
+}
+
+renderer.shadowMap.enabled = !true;
 renderer.shadowMap.type = PCFSoftShadowMap;
 
 const scene = new Scene();
@@ -106,11 +96,12 @@ scene.add(light);
 const ambient = new AmbientLight(0x404040, 1);
 scene.add(ambient);
 
-let currentLocation;
-
 const width = 1024;
 const height = 1024;
-const step = 8;
+const heightMap = new HeightMap(width, height, 8);
+scene.add(heightMap.mesh);
+
+let currentLocation;
 
 const colorCanvas = document.createElement("canvas");
 colorCanvas.width = width;
@@ -136,146 +127,6 @@ colorCanvas.style.top = "0";
 colorCanvas.style.zIndex = "10";
 colorCanvas.style.width = "512px";
 colorCtx.translate(0.5 * colorCanvas.width, 0.5 * colorCanvas.height);
-
-const boxScale = 0.01 * step;
-//const geo = new BoxBufferGeometry(boxScale, boxScale, boxScale); //, 5, 5, 5);
-// const geo = new RoundedBoxGeometry(
-//   boxScale,
-//   boxScale,
-//   boxScale,
-//   boxScale / 50,
-//   1
-// ); //, 5, 5, 5);
-// const geo = generateRoundedPrismGeometry(boxScale);
-const geo = generatePlasticBrickGeometry(boxScale, 2);
-
-const points = [];
-const v = new Vector3();
-const dummy = new Object3D();
-for (let y = 0; y < height; y += step) {
-  for (let x = 0; x < width; x += step) {
-    const ptr = (y * width + x) * 4;
-    v.set(
-      (x - 0.5 * width) / step,
-      0,
-      (y - 0.5 * height) / step
-    ).multiplyScalar(boxScale);
-    points.push({ ptr, v: v.clone() });
-  }
-}
-
-// const f = Math.sqrt(3) / 2;
-// const fstep = step * f;
-// let row = 0;
-// for (let y = 0; y < height; y += fstep) {
-//   for (let x = 0; x < width; x += step) {
-//     const ptr = (Math.floor(y) * width + Math.floor(x)) * 4;
-//     v.set(
-//       (x - 0.5 * width) / step,
-//       0,
-//       (y - 0.5 * height) / step
-//     ).multiplyScalar(boxScale);
-//     if (row % 2 === 1) {
-//       v.x += boxScale / 2;
-//     }
-//     const d = v.length();
-//     if (d < (0.5 * width * boxScale) / step) {
-//       points.push({ ptr, v: v.clone() });
-//     }
-//   }
-//   row++;
-// }
-
-const mesh = new InstancedMesh(
-  geo,
-  new MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.1 }),
-  points.length
-);
-scene.add(mesh);
-// mesh.instanceMatrix.setUsage(DynamicDrawUsage);
-mesh.geometry.setAttribute(
-  "height",
-  new InstancedBufferAttribute(new Float32Array(points.length), 1)
-);
-// mesh.instanceColor.setUsage(DynamicDrawUsage);
-mesh.castShadow = mesh.receiveShadow = true;
-
-const c = new Color();
-for (let i = 0; i < mesh.count; i++) {
-  mesh.setColorAt(i, c);
-}
-
-let verticalScale = 500 / step;
-window.verticalScale = verticalScale;
-
-let i = 0;
-for (const p of points) {
-  dummy.position.copy(p.v);
-  dummy.updateMatrix();
-  mesh.setMatrixAt(i, dummy.matrix);
-  i++;
-}
-mesh.instanceMatrix.needsUpdate = true;
-
-function processMaps() {
-  const colorData = colorCtx.getImageData(
-    0,
-    0,
-    colorCanvas.width,
-    colorCanvas.height
-  );
-  const heightData = heightCtx.getImageData(
-    0,
-    0,
-    heightCanvas.width,
-    heightCanvas.height
-  );
-
-  let min = Number.MAX_SAFE_INTEGER;
-  let max = Number.MIN_SAFE_INTEGER;
-  for (const p of points) {
-    const h = getNextZenHeight(
-      heightData.data[p.ptr],
-      heightData.data[p.ptr + 1],
-      heightData.data[p.ptr + 2]
-    );
-    if (isNaN(h)) {
-      debugger;
-    }
-    min = Math.min(min, h);
-    max = Math.max(max, h);
-  }
-  console.log(min, max);
-
-  const heights = mesh.geometry.attributes.height.array;
-  let min2 = Number.MAX_SAFE_INTEGER;
-  let max2 = Number.MIN_SAFE_INTEGER;
-  let i = 0;
-  for (const p of points) {
-    let h = getNextZenHeight(
-      heightData.data[p.ptr],
-      heightData.data[p.ptr + 1],
-      heightData.data[p.ptr + 2]
-    );
-    h = ((h - min) / (max - min)) * window.verticalScale;
-    min2 = Math.min(min2, h);
-    max2 = Math.max(max2, h);
-    h = Math.floor(h / 0.5) * 0.5;
-    h = 1 + h;
-    const c = new Color(
-      colorData.data[p.ptr] / 255,
-      colorData.data[p.ptr + 1] / 255,
-      colorData.data[p.ptr + 2] / 255
-    );
-
-    heights[i] = h * boxScale;
-    mesh.setColorAt(i, c);
-    i++;
-  }
-
-  mesh.instanceColor.needsUpdate = true;
-  mesh.geometry.attributes.height.needsUpdate = true;
-}
 
 async function populateColorMap(lat, lng, zoom) {
   const cx = lngToTile(lng, zoom);
@@ -342,11 +193,11 @@ async function populateMaps(lat, lng, zoom) {
     populateColorMap(lat, lng, zoom),
     populateHeightMap(lat, lng, zoom),
   ]);
-  processMaps();
+  heightMap.processMaps(colorCtx, heightCtx);
   console.log("done");
 }
 
-function load(lat, lng) {
+async function load(lat, lng) {
   const bounds = map.map.getBounds();
   const zoom = map.map.getZoom();
   populateMaps(lat, lng, zoom + 1);
@@ -476,7 +327,7 @@ function render() {
 }
 
 async function init() {
-  await map.ready;
+  await Promise.all([map.ready, loadEnvMap()]);
   // const [lat, lng] = window.location.hash.substring(1).split(",");
   // if (lat && lng) {
   //   await load(parseFloat(lat), parseFloat(lng));
