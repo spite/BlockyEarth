@@ -85,12 +85,12 @@ class HeightMap {
   }
 
   filter(v) {
-    return this.filterHexagon(v);
+    return true; //this.filterHexagon(v);
   }
 
   filterCircle(v) {
     const d = v.length();
-    return d < (0.5 * this.width * this.boxScale) / this.step;
+    return d <= (0.5 * this.width * this.boxScale) / this.step;
   }
 
   filterHexagon(v) {
@@ -106,7 +106,6 @@ class HeightMap {
 
   generateGridPoints() {
     this.points.length = 0;
-    const v = new Vector3();
     for (let y = 0; y < this.height; y += this.step) {
       for (let x = 0; x < this.width; x += this.step) {
         const ptr = (y * this.width + x) * 4;
@@ -175,6 +174,40 @@ class HeightMap {
     this.mesh.instanceMatrix.needsUpdate = true;
   }
 
+  getHeight(data, ptr) {
+    let p;
+    let accum = 0;
+    let total = 0;
+    for (let y = 0; y < this.step; y++) {
+      for (let x = 0; x < this.step; x++) {
+        p = ptr + (y * this.width + x) * 4;
+        let h = getNextZenHeight(data[p], data[p + 1], data[p + 2]);
+        accum += h;
+        total++;
+      }
+    }
+    return accum / total;
+  }
+
+  getColor(data, ptr) {
+    let p;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    let total = 0;
+    for (let y = 0; y < this.step; y++) {
+      for (let x = 0; x < this.step; x++) {
+        p = ptr + (y * this.width + x) * 4;
+        r += data[p];
+        g += data[p + 1];
+        b += data[p + 2];
+        total++;
+      }
+    }
+    total *= 255;
+    return new Color(r / total, g / total, b / total);
+  }
+
   processMaps(colorCtx, heightCtx) {
     const colorData = colorCtx.getImageData(
       0,
@@ -192,14 +225,12 @@ class HeightMap {
     let min = Number.MAX_SAFE_INTEGER;
     let max = Number.MIN_SAFE_INTEGER;
     for (const p of this.points) {
-      const h = getNextZenHeight(
-        heightData.data[p.ptr],
-        heightData.data[p.ptr + 1],
-        heightData.data[p.ptr + 2]
-      );
-      if (isNaN(h)) {
-        debugger;
-      }
+      // const h = getNextZenHeight(
+      //   heightData.data[p.ptr],
+      //   heightData.data[p.ptr + 1],
+      //   heightData.data[p.ptr + 2]
+      // );
+      const h = this.getHeight(heightData.data, p.ptr);
       min = Math.min(min, h);
       max = Math.max(max, h);
     }
@@ -210,21 +241,23 @@ class HeightMap {
     let max2 = Number.MIN_SAFE_INTEGER;
     let i = 0;
     for (const p of this.points) {
-      let h = getNextZenHeight(
-        heightData.data[p.ptr],
-        heightData.data[p.ptr + 1],
-        heightData.data[p.ptr + 2]
-      );
+      // let h = getNextZenHeight(
+      //   heightData.data[p.ptr],
+      //   heightData.data[p.ptr + 1],
+      //   heightData.data[p.ptr + 2]
+      // );
+      let h = this.getHeight(heightData.data, p.ptr);
       h = ((h - min) / (max - min)) * this.verticalScale;
       min2 = Math.min(min2, h);
       max2 = Math.max(max2, h);
       h = Math.floor(h / 0.5) * 0.5;
       h = 1 + h;
-      const c = new Color(
-        colorData.data[p.ptr] / 255,
-        colorData.data[p.ptr + 1] / 255,
-        colorData.data[p.ptr + 2] / 255
-      );
+      // const c = new Color(
+      //   colorData.data[p.ptr] / 255,
+      //   colorData.data[p.ptr + 1] / 255,
+      //   colorData.data[p.ptr + 2] / 255
+      // );
+      const c = this.getColor(colorData.data, p.ptr);
 
       heights[i] = h * this.boxScale;
       this.mesh.setColorAt(i, c);
