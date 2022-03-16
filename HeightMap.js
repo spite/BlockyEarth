@@ -32,8 +32,8 @@ class HeightMap {
 
     this.mode = PlasticBrick;
     // this.generateBoxGeometry();
-    // this.generateRoundedBoxGeometry();
-    this.generatePlasticBrickGeometry();
+    this.generateRoundedBoxGeometry();
+    // this.generatePlasticBrickGeometry();
     this.generateGridPoints();
     // this.generateHexagonGeometry();
     // this.generateHexagonGrid();
@@ -84,6 +84,26 @@ class HeightMap {
     this.geo = generatePlasticBrickGeometry(this.boxScale, 2);
   }
 
+  filter(v) {
+    return this.filterHexagon(v);
+  }
+
+  filterCircle(v) {
+    const d = v.length();
+    return d < (0.5 * this.width * this.boxScale) / this.step;
+  }
+
+  filterHexagon(v) {
+    const a = Math.atan2(v.z, v.x);
+    const R = (0.5 * this.width * this.boxScale) / this.step;
+    const sides = 5;
+    const r =
+      (R * Math.cos(Math.PI / sides)) /
+      Math.cos((2 * Math.asin(Math.sin((sides * a) / 2))) / sides);
+    const d = v.length();
+    return d <= r;
+  }
+
   generateGridPoints() {
     this.points.length = 0;
     const v = new Vector3();
@@ -95,7 +115,9 @@ class HeightMap {
           0,
           (y - 0.5 * this.height) / this.step
         ).multiplyScalar(this.boxScale);
-        this.points.push({ ptr, v: v.clone() });
+        if (this.filter(v)) {
+          this.points.push({ ptr, v: v.clone() });
+        }
       }
     }
   }
@@ -116,8 +138,7 @@ class HeightMap {
         if (row % 2 === 1) {
           v.x += this.boxScale / 2;
         }
-        const d = v.length();
-        if (d < (0.5 * this.width * this.boxScale) / this.step) {
+        if (this.filter(v)) {
           this.points.push({ ptr, v: v.clone() });
         }
       }
