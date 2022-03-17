@@ -33,10 +33,10 @@ class HeightMap {
     this.mode = PlasticBrick;
     // this.generateBoxGeometry();
     // this.generateRoundedBoxGeometry();
-    // this.generatePlasticBrickGeometry();
-    // this.generateGridPoints();
-    this.generateHexagonGeometry();
-    this.generateHexagonGrid();
+    this.generatePlasticBrickGeometry();
+    this.generateGridPoints();
+    // this.generateHexagonGeometry();
+    // this.generateHexagonGrid();
     this.initMesh();
     this.updatePositions();
   }
@@ -85,6 +85,7 @@ class HeightMap {
   }
 
   filter(v) {
+    return this.filterCircle(v);
     return this.filterHexagon(v);
   }
 
