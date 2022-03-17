@@ -1,4 +1,5 @@
 import { LitElement, html } from "https://unpkg.com/lit?module";
+import { mapBoxKey } from "../config.js";
 import "./button.js";
 
 const locations = [
@@ -84,8 +85,7 @@ class MapBrowser extends LitElement {
         id: "mapbox/streets-v11",
         tileSize: 512,
         zoomOffset: -1,
-        accessToken:
-          "pk.eyJ1Ijoic3BpdGUiLCJhIjoiMU9EUUJlZyJ9.FXckC6N4GTPsqe1ua1u_5g",
+        accessToken: mapBoxKey,
       }
     ).addTo(this.map);
 
