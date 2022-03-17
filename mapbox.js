@@ -72,6 +72,18 @@ function convertHeight(img) {
   return canvas;
 }
 
+async function fetchTile(x, y, z) {
+  const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/${z}/${x}/${y}?access_token=${mapBoxKey}`;
+  // const url = `https://map1.vis.earthdata.nasa.gov/wmts-webmerc/VIIRS_CityLights_2012/default//GoogleMapsCompatible_Level8/${z}/${y}/${x}.jpg`;
+  // const url = `https://stamen-tiles-b.a.ssl.fastly.net/watercolor/${z}/${x}/${y}.jpg`;
+
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.src = url;
+  await img.decode();
+  return img;
+}
+
 async function fetchElevationTile(x, y, z) {
   // const url = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}.pngraw?access_token=${mapBoxKey}`;
   // const url = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}@2x.pngraw?access_token=${mapBoxKey}`;
@@ -99,4 +111,5 @@ export {
   tileToLatLng,
   getNextZenHeight,
   getHeight,
+  fetchTile,
 };
