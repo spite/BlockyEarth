@@ -3,7 +3,12 @@ import "./deps/progress.js";
 import "./deps/snackbar.js";
 import "./deps/tweet-button.js";
 import { loadTile } from "./google-maps.js";
-import { fetchElevationTile, latToTile, lngToTile } from "./mapbox.js";
+import {
+  fetchElevationTile,
+  latToTile,
+  lngToTile,
+  fetchTile,
+} from "./mapbox.js";
 import {
   WebGLRenderer,
   Scene,
