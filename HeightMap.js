@@ -32,11 +32,11 @@ class HeightMap {
 
     this.mode = PlasticBrick;
     // this.generateBoxGeometry();
-    this.generateRoundedBoxGeometry();
+    // this.generateRoundedBoxGeometry();
     // this.generatePlasticBrickGeometry();
-    this.generateGridPoints();
-    // this.generateHexagonGeometry();
-    // this.generateHexagonGrid();
+    // this.generateGridPoints();
+    this.generateHexagonGeometry();
+    this.generateHexagonGrid();
     this.initMesh();
     this.updatePositions();
   }
@@ -85,7 +85,7 @@ class HeightMap {
   }
 
   filter(v) {
-    return true; //this.filterHexagon(v);
+    return this.filterHexagon(v);
   }
 
   filterCircle(v) {
@@ -225,11 +225,6 @@ class HeightMap {
     let min = Number.MAX_SAFE_INTEGER;
     let max = Number.MIN_SAFE_INTEGER;
     for (const p of this.points) {
-      // const h = getNextZenHeight(
-      //   heightData.data[p.ptr],
-      //   heightData.data[p.ptr + 1],
-      //   heightData.data[p.ptr + 2]
-      // );
       const h = this.getHeight(heightData.data, p.ptr);
       min = Math.min(min, h);
       max = Math.max(max, h);
@@ -241,22 +236,13 @@ class HeightMap {
     let max2 = Number.MIN_SAFE_INTEGER;
     let i = 0;
     for (const p of this.points) {
-      // let h = getNextZenHeight(
-      //   heightData.data[p.ptr],
-      //   heightData.data[p.ptr + 1],
-      //   heightData.data[p.ptr + 2]
-      // );
       let h = this.getHeight(heightData.data, p.ptr);
       h = ((h - min) / (max - min)) * this.verticalScale;
       min2 = Math.min(min2, h);
       max2 = Math.max(max2, h);
-      h = Math.floor(h / 0.5) * 0.5;
+      // h = Math.floor(h / 0.5) * 0.5;
       h = 1 + h;
-      // const c = new Color(
-      //   colorData.data[p.ptr] / 255,
-      //   colorData.data[p.ptr + 1] / 255,
-      //   colorData.data[p.ptr + 2] / 255
-      // );
+
       const c = this.getColor(colorData.data, p.ptr);
 
       heights[i] = h * this.boxScale;
