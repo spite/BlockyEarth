@@ -103,7 +103,8 @@ scene.add(ambient);
 
 const width = 1024;
 const height = 1024;
-const heightMap = new HeightMap(width, height, 8);
+const heightMap = new HeightMap(width, height, 4);
+heightMap.verticalScale = 50;
 scene.add(heightMap.mesh);
 
 let currentLocation;
@@ -278,6 +279,11 @@ window.addEventListener("keydown", (e) => {
 
 document.querySelector("#pauseBtn").addEventListener("click", (e) => {
   pause();
+  e.preventDefault();
+});
+
+document.querySelector("#downloadBtn").addEventListener("click", (e) => {
+  heightMap.bake();
   e.preventDefault();
 });
 
