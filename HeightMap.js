@@ -7,11 +7,17 @@ import {
   InstancedBufferAttribute,
   Vector3,
   IcosahedronBufferGeometry,
+  Scene,
+  Group,
+  Mesh,
+  MeshStandardMaterial,
 } from "./third_party/three.module.js";
 import { RoundedBoxGeometry } from "./third_party/RoundedBoxGeometry.js";
 import { generateRoundedPrismGeometry } from "./RoundedPrismGeomtry.js";
 import { generatePlasticBrickGeometry } from "./PlasticBrickGeometry.js";
 import { getNextZenHeight } from "./mapbox.js";
+import { GLTFExporter } from "./third_party/GLTFExporter.js";
+import { downloadArrayBuffer, downloadStr } from "./download.js";
 
 const RoundedBox = Symbol("RoundedBox");
 const Hexagon = Symbol("Hexagon");
@@ -241,7 +247,7 @@ class HeightMap {
       h = ((h - min) / (max - min)) * this.verticalScale;
       min2 = Math.min(min2, h);
       max2 = Math.max(max2, h);
-      // h = Math.floor(h / 0.5) * 0.5;
+      h = Math.floor(h / 0.5) * 0.5;
       h = 1 + h;
 
       const c = this.getColor(colorData.data, p.ptr);
@@ -253,6 +259,36 @@ class HeightMap {
 
     this.mesh.instanceColor.needsUpdate = true;
     this.mesh.geometry.attributes.height.needsUpdate = true;
+  }
+
+  bake() {
+    const exporter = new GLTFExporter();
+    const scene = new Scene();
+    const group = new Group();
+    scene.add(group);
+    for (let i = 0; i < this.mesh.instanceMatrix.count; i++) {
+      const dummy = new Mesh(this.geo, new MeshStandardMaterial());
+      this.mesh.getMatrixAt(i, dummy.matrix);
+      this.mesh.getColorAt(i, dummy.material.color);
+      dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
+      dummy.position.y = this.mesh.geometry.attributes.height.array[i];
+      group.add(dummy);
+    }
+    const options = {
+      binary: true,
+    };
+    exporter.parse(
+      scene,
+      (result) => {
+        if (result instanceof ArrayBuffer) {
+          downloadArrayBuffer(result, `blocky-earth-.glb`);
+        } else {
+          const output = JSON.stringify(result, null, 2);
+          downloadStr(output, `blokcy-earth-.gltf`);
+        }
+      },
+      options
+    );
   }
 }
 
