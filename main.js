@@ -103,8 +103,8 @@ scene.add(ambient);
 
 const width = 1024;
 const height = 1024;
-const heightMap = new HeightMap(width, height, 4);
-heightMap.verticalScale = 50;
+const heightMap = new HeightMap(width, height, 64);
+heightMap.verticalScale = 10;
 scene.add(heightMap.mesh);
 
 let currentLocation;
