@@ -55,7 +55,7 @@ void main() {
     pp.y = position.y + h;
   }
   vNormal = normal;
-  vec4 fPos = instanceMatrix * vec4(pp - vec3(.5, 0., .5), 1.0);
+  vec4 fPos = instanceMatrix * vec4(pp, 1.0);
   vMPosition = modelMatrix * fPos;
   vec4 mvPosition = modelViewMatrix * fPos;
   vEyePosition = mvPosition;
