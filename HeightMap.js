@@ -91,19 +91,22 @@ class HeightMap {
   }
 
   filter(v) {
+    // return true;
     // return this.filterCircle(v);
     return this.filterHexagon(v);
   }
 
   filterCircle(v) {
     const d = v.length();
-    return d <= (0.5 * this.width * this.boxScale) / this.step;
+    return (
+      d < (0.5 * this.width * this.boxScale) / this.step + 0.5 * this.boxScale
+    );
   }
 
   filterHexagon(v) {
     const a = Math.atan2(v.z, v.x);
     const R = (0.5 * this.width * this.boxScale) / this.step;
-    const sides = 5;
+    const sides = 6;
     const r =
       (R * Math.cos(Math.PI / sides)) /
       Math.cos((2 * Math.asin(Math.sin((sides * a) / 2))) / sides);
@@ -113,16 +116,20 @@ class HeightMap {
 
   generateGridPoints() {
     this.points.length = 0;
+    const uW = this.width / this.step;
+    const uH = this.height / this.step;
+    const offsetW = 0.5 * ((uW + 1) % 2) * this.step;
+    const offsetH = 0.5 * ((uH + 1) % 2) * this.step;
     for (let y = 0; y < this.height; y += this.step) {
       for (let x = 0; x < this.width; x += this.step) {
         const ptr = (y * this.width + x) * 4;
         v.set(
-          (x - 0.5 * this.width) / this.step,
+          (x + offsetW - 0.5 * this.width) / this.step,
           0,
-          (y - 0.5 * this.height) / this.step
+          (y + offsetH - 0.5 * this.height) / this.step
         ).multiplyScalar(this.boxScale);
         if (this.filter(v)) {
-          this.points.push({ ptr, v: v.clone() });
+          this.points.push({ ptr, x, y, v: v.clone() });
         }
       }
     }
@@ -132,20 +139,24 @@ class HeightMap {
     this.points.length = 0;
     const f = Math.sqrt(3) / 2;
     const fstep = this.step * f;
+    const uW = this.width / this.step;
+    const uH = this.height / this.step;
+    const offsetW = 0.5 * ((uW + 1) % 2) * this.step;
+    const offsetH = 0.5 * ((uH + 1) % 2) * this.step;
     let row = 0;
     for (let y = 0; y < this.height; y += fstep) {
       for (let x = 0; x < this.width; x += this.step) {
         const ptr = (Math.floor(y) * this.width + Math.floor(x)) * 4;
         v.set(
-          (x - 0.5 * this.width) / this.step,
+          (x + offsetW - 0.5 * this.width) / this.step,
           0,
-          (y - 0.5 * this.height) / this.step
+          (y + offsetH - 0.5 * this.height) / this.step
         ).multiplyScalar(this.boxScale);
         if (row % 2 === 1) {
           v.x += this.boxScale / 2;
         }
         if (this.filter(v)) {
-          this.points.push({ ptr, v: v.clone() });
+          this.points.push({ ptr, x, y, v: v.clone() });
         }
       }
       row++;
@@ -181,34 +192,41 @@ class HeightMap {
     this.mesh.instanceMatrix.needsUpdate = true;
   }
 
-  getHeight(data, ptr) {
+  getHeight(data, x0, y0) {
     let p;
     let accum = 0;
     let total = 0;
-    for (let y = 0; y < this.step; y++) {
-      for (let x = 0; x < this.step; x++) {
-        p = ptr + (y * this.width + x) * 4;
-        let h = getNextZenHeight(data[p], data[p + 1], data[p + 2]);
-        accum += h;
-        total++;
+    for (let y = y0; y < y0 + this.step; y++) {
+      for (let x = x0; x < x0 + this.step; x++) {
+        if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
+          p = (y * this.width + x) * 4;
+          let h = getNextZenHeight(data[p], data[p + 1], data[p + 2]);
+          if (isNaN(h)) {
+            debugger;
+          }
+          accum += h;
+          total++;
+        }
       }
     }
     return accum / total;
   }
 
-  getColor(data, ptr) {
+  getColor(data, x0, y0) {
     let p;
     let r = 0;
     let g = 0;
     let b = 0;
     let total = 0;
-    for (let y = 0; y < this.step; y++) {
-      for (let x = 0; x < this.step; x++) {
-        p = ptr + (y * this.width + x) * 4;
-        r += data[p];
-        g += data[p + 1];
-        b += data[p + 2];
-        total++;
+    for (let y = y0; y < y0 + this.step; y++) {
+      for (let x = x0; x < x0 + this.step; x++) {
+        if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
+          p = (y * this.width + x) * 4;
+          r += data[p];
+          g += data[p + 1];
+          b += data[p + 2];
+          total++;
+        }
       }
     }
     total *= 255;
@@ -232,7 +250,11 @@ class HeightMap {
     let min = Number.MAX_SAFE_INTEGER;
     let max = Number.MIN_SAFE_INTEGER;
     for (const p of this.points) {
-      const h = this.getHeight(heightData.data, p.ptr);
+      const h = this.getHeight(
+        heightData.data,
+        Math.floor(p.x),
+        Math.floor(p.y)
+      );
       min = Math.min(min, h);
       max = Math.max(max, h);
     }
@@ -243,14 +265,14 @@ class HeightMap {
     let max2 = Number.MIN_SAFE_INTEGER;
     let i = 0;
     for (const p of this.points) {
-      let h = this.getHeight(heightData.data, p.ptr);
+      let h = this.getHeight(heightData.data, Math.floor(p.x), Math.floor(p.y));
       h = ((h - min) / (max - min)) * this.verticalScale;
       min2 = Math.min(min2, h);
       max2 = Math.max(max2, h);
       h = Math.floor(h / 0.5) * 0.5;
       h = 1 + h;
 
-      const c = this.getColor(colorData.data, p.ptr);
+      const c = this.getColor(colorData.data, Math.floor(p.x), Math.floor(p.y));
 
       heights[i] = h * this.boxScale;
       this.mesh.setColorAt(i, c);
