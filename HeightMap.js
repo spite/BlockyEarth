@@ -11,12 +11,16 @@ import {
   Group,
   Mesh,
   MeshStandardMaterial,
+  MeshNormalMaterial,
+  Quaternion,
+  Matrix4,
 } from "./third_party/three.module.js";
 import { RoundedBoxGeometry } from "./third_party/RoundedBoxGeometry.js";
 import { generateRoundedPrismGeometry } from "./RoundedPrismGeomtry.js";
 import { generatePlasticBrickGeometry } from "./PlasticBrickGeometry.js";
 import { getNextZenHeight } from "./mapbox.js";
-import { GLTFExporter } from "./third_party/GLTFExporter.js";
+//import { GLTFExporter } from "./third_party/GLTFExporter.js";
+import { PLYExporter } from "./third_party/PLYExporter.js";
 import { downloadArrayBuffer, downloadStr } from "./download.js";
 
 const RoundedBox = Symbol("RoundedBox");
@@ -92,7 +96,7 @@ class HeightMap {
 
   filter(v) {
     // return true;
-    // return this.filterCircle(v);
+    return this.filterCircle(v);
     return this.filterHexagon(v);
   }
 
@@ -283,7 +287,7 @@ class HeightMap {
     this.mesh.geometry.attributes.height.needsUpdate = true;
   }
 
-  bake() {
+  bakeGLTF() {
     const exporter = new GLTFExporter();
     const scene = new Scene();
     const group = new Group();
@@ -306,7 +310,45 @@ class HeightMap {
           downloadArrayBuffer(result, `blocky-earth-.glb`);
         } else {
           const output = JSON.stringify(result, null, 2);
-          downloadStr(output, `blokcy-earth-.gltf`);
+          downloadStr(output, `blocky-earth-.gltf`);
+        }
+      },
+      options
+    );
+  }
+
+  bake() {
+    this.bakePLY();
+  }
+
+  bakePLY() {
+    const exporter = new PLYExporter();
+    const scene = new Scene();
+    const material = new MeshNormalMaterial();
+    const mat = new Matrix4();
+    const position = new Vector3();
+    const quaternion = new Quaternion();
+    const scale = new Vector3();
+    for (let i = 0; i < this.mesh.instanceMatrix.count; i++) {
+      const geo = this.geo.clone();
+      this.mesh.getMatrixAt(i, mat);
+      // this.mesh.getColorAt(i, dummy.material.color);
+      mat.decompose(position, quaternion, scale);
+      position.y = this.mesh.geometry.attributes.height.array[i];
+      geo.translate(position.x, position.y, position.z);
+      geo.scale(scale.x, scale.y, scale.z);
+      const mesh = new Mesh(geo, material);
+      scene.add(mesh);
+    }
+    const options = { binary: true };
+    exporter.parse(
+      scene,
+      (result) => {
+        if (result instanceof ArrayBuffer) {
+          downloadArrayBuffer(result, `blocky-earth-.ply`);
+        } else {
+          const output = JSON.stringify(result, null, 2);
+          downloadStr(output, `blocky-earth-.ply`);
         }
       },
       options
