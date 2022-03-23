@@ -149,7 +149,7 @@ async function populateColorMap(lat, lng, zoom) {
     for (let x = -3; x < +3; x++) {
       promises.push(
         new Promise(async (resolve, reject) => {
-          const c = await fetchTile(mod(bx - x, maxW), mod(by - y, maxH), zoom);
+          const c = await loadTile(mod(bx - x, maxW), mod(by - y, maxH), zoom);
           const dx = -(x + (cx % 1)) * c.naturalWidth;
           const dy = -(y + (cy % 1)) * c.naturalHeight;
           colorCtx.drawImage(c, dx, dy);
