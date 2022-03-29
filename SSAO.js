@@ -101,24 +101,24 @@ void main() {
   vec3 Y = dFdy(vPosition);
   vec3 n = normalize(cross(X,Y));
 
-  float diffuse = .5 + .5 * max(0., dot(n, lDir));
+  float diffuse = max(0., dot(n, lDir));
   float level = vColor.x;
 
   vec3 e = normalize(-vPosition.xyz);
   vec3 h = normalize(lDir + e);
   float specular = pow(max(dot(n, h), 0.), 20.);
 
-  vec3 t = normalize(vMPosition.xyz - cameraPosition);
-  vec3 refl = normalize(reflect(t, n));
-  vec4 c1 = texture(envMap, refl, 5.);
-  vec4 c2 = texture(envMap, vNormal, 10.);
-  specular = c1.r;
-  diffuse = c2.r;
+  // vec3 t = normalize(vMPosition.xyz - cameraPosition);
+  // vec3 refl = normalize(reflect(t, n));
+  // vec4 c1 = texture(envMap, refl, 5.);
+  // vec4 c2 = texture(envMap, vNormal, 10.);
+  // specular = c1.r;
+  // diffuse = c2.r;
 
   vec3 c = vColor;
   vec3 modColor = rgb2hsv(c);
-  modColor.z += .1 * diffuse;
-  modColor.z += .1 * specular;
+  modColor.z += .2 * diffuse;
+  modColor.z += .2 * specular;
   modColor.z = clamp(modColor.z, 0., 1.);
   modColor = hsv2rgb(modColor);
 
@@ -131,6 +131,7 @@ void main() {
   color = vec4(modColor , 1.);//vec4(diffuse);//vec4(vec3(.75 + diffuse), 1.);
   // color = vec4(vec3(diffuse + specular), 1.);
   // color = vec4(vNormal, 1.);
+  // color = vec4(vec3(max(diffuse, specular)), 1.);
   float d = linearizeDepth(length( vPosition ));
   position = vec4(vPosition, d);
   normal = vec4(n, 1.);
@@ -232,13 +233,14 @@ void main() {
   vec4 color = texture(colorMap, vUv);
   color.rgb = screen(color.rgb, acCol.rgb, .1);
 	vec3 hsl = rgb2hsv(color.rgb);
-	hsl.z *=  (1.-occlusion);//* (1.-hsl.z);
-	hsl.y *= .5 + .5 * (1.-occlusion);//* (1.-hsl.z);
+	hsl.z *=  (1.-occlusion);
+	hsl.y *= .5 + .5 * (1.-occlusion);
   hsl.z = clamp(hsl.z, 0., 1.);
+  hsl.y = clamp(hsl.t, 0., 1.);
 	vec3 finalColor = czm_saturation(hsv2rgb(hsl), 1.5 + occlusion);
-  // vec3 finalColor = hsv2rgb(hsl);
+  // vec4 finalColor = color;
 
-	fragColor = vec4(finalColor.rgb, 1. );
+	fragColor = vec4(finalColor.rgb, color.a);
   
 }`;
 
