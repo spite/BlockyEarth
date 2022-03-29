@@ -48,9 +48,11 @@ progress.hide();
 
 const renderer = new WebGLRenderer({
   antialias: true,
+  alpha: true,
   preserveDrawingBuffer: true,
   powerPreference: "high-performance",
 });
+renderer.setClearColor(0xff00ff, 0);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.append(renderer.domElement);
 
@@ -71,7 +73,7 @@ renderer.shadowMap.type = PCFSoftShadowMap;
 
 const scene = new Scene();
 const camera = new PerspectiveCamera(75, 1, 0.01, 1000);
-camera.position.set(10, 10, 10);
+camera.position.set(-2, 10, 10);
 camera.lookAt(scene.position);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -149,7 +151,7 @@ async function populateColorMap(lat, lng, zoom) {
     for (let x = -3; x < +3; x++) {
       promises.push(
         new Promise(async (resolve, reject) => {
-          const c = await loadTile(mod(bx - x, maxW), mod(by - y, maxH), zoom);
+          const c = await fetchTile(mod(bx - x, maxW), mod(by - y, maxH), zoom);
           const dx = -(x + (cx % 1)) * c.naturalWidth;
           const dy = -(y + (cy % 1)) * c.naturalHeight;
           colorCtx.drawImage(c, dx, dy);
@@ -203,16 +205,16 @@ async function populateMaps(lat, lng, zoom) {
   console.log("done");
 }
 
-async function load(lat, lng) {
-  const bounds = map.map.getBounds();
-  const zoom = map.map.getZoom();
+async function load(lat, lng, zoom) {
   populateMaps(lat, lng, zoom + 1);
 }
 
 window.addEventListener("map-selection", async (e) => {
   const lat = e.detail.latLng.lat;
   const lng = e.detail.latLng.lng;
-  await load(lat, lng);
+  const zoom = map.map.getZoom();
+  window.location.hash = `${lat},${lng},${zoom}`;
+  await load(lat, lng, zoom);
 });
 
 function resize() {
@@ -339,12 +341,14 @@ function render() {
 
 async function init() {
   await Promise.all([map.ready, loadEnvMap()]);
-  // const [lat, lng] = window.location.hash.substring(1).split(",");
-  // if (lat && lng) {
-  //   await load(parseFloat(lat), parseFloat(lng));
-  // } else {
-  //   map.randomLocation();
-  // }
+  const [lat, lng, zoom] = window.location.hash.substring(1).split(",");
+  if (lat && lng) {
+    map.moveTo(parseFloat(lat), parseFloat(lng));
+    map.map.setZoom(zoom);
+    await load(parseFloat(lat), parseFloat(lng), parseFloat(zoom));
+  } else {
+    //map.randomLocation();
+  }
   render();
 }
 
