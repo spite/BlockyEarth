@@ -10,11 +10,13 @@ import {
   Vector2,
   PlaneBufferGeometry,
   OrthographicCamera,
-  TextureLoader,
+  Vector3,
+  Matrix4,
 } from "./third_party/three.module.js";
 import { shader as orthoVs } from "./shaders/ortho.js";
 import { shader as hsl } from "./shaders/hsl.js";
 import { shader as screen } from "./shaders/screen.js";
+import { getFBO } from "./modules/fbo.js";
 
 const vertexShader = `precision highp float;
 
@@ -28,15 +30,26 @@ uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
 uniform mat3 normalMatrix;
 uniform mat4 modelMatrix;
+uniform vec3 lightPos;
+uniform mat4 shadowProjectionMatrix;
+uniform mat4 shadowViewMatrix;
 
 out vec3 vPosition;
 out vec3 vColor;
 out vec3 lDir;
 out vec4 vMPosition;
 out vec3 vNormal;
+out vec4 vShadowCoord;
+
+const mat4 biasMatrix = mat4(
+	0.5, 0.0, 0.0, 0.0, 
+	0.0, 0.5, 0.0, 0.0, 
+	0.0, 0.0, 0.5, 0.0, 
+	0.5, 0.5, 0.5, 1.0
+);
 
 void main() {
-  lDir = normalize(vec3(1.));
+  lDir = normalize(lightPos);
   vec4 p = instanceMatrix * vec4(0., 0., 0., 1.);
   vec2 vuv = p.xz;
   float h = height;
@@ -53,6 +66,8 @@ void main() {
   vec4 mvPosition = modelViewMatrix * fPos;
   vPosition = mvPosition.xyz / mvPosition.w;
   gl_Position = projectionMatrix * mvPosition;
+
+  vShadowCoord = biasMatrix * shadowProjectionMatrix * shadowViewMatrix * vMPosition;
 }`;
 
 const fragmentShader = `precision highp float;
@@ -64,6 +79,7 @@ layout(location = 2) out vec4 normal;
 uniform float near;
 uniform float far;
 uniform sampler2D matcap;
+uniform sampler2D shadowMap;
 uniform mat3 normalMatrix;
 uniform vec3 cameraPosition;
 
@@ -72,6 +88,7 @@ in vec3 lDir;
 in vec3 vColor;
 in vec4 vMPosition;
 in vec3 vNormal;
+in vec4 vShadowCoord;
 
 float linearizeDepth(float z) {
   return (2.0 * near) / (far + near - z * (far - near));	
@@ -79,25 +96,42 @@ float linearizeDepth(float z) {
 
 ${hsl}
 
+const float bias = 0.005;
+
+float sampleVisibility(vec3 coord) {
+  float depth = texture(shadowMap, coord.xy).r;
+  float visibility  = (coord.z - depth > bias ) ? 0. : 1.;
+  return visibility;
+}
+
 void main() {
   vec3 X = dFdx(vPosition);
   vec3 Y = dFdy(vPosition);
   vec3 n = normalize(cross(X,Y));
+
+  float shadow = 0.;
+	vec3 shadowCoord = vShadowCoord.xyz / vShadowCoord.w;
+  if( shadowCoord.x >= 0. || shadowCoord.x <= 1. || shadowCoord.y >= 0. || shadowCoord.y <= 1. ) {
+    shadow += sampleVisibility(shadowCoord);
+  }
 
   float diffuse = max(0., dot(n, lDir));
 
   vec3 e = normalize(-vPosition.xyz);
   vec3 h = normalize(lDir + e);
   float specular = pow(max(dot(n, h), 0.), 20.);
-
+  
   vec3 c = vColor;
   vec3 modColor = rgb2hsv(c);
   modColor.z += .2 * diffuse;
   modColor.z += .2 * specular;
+  modColor.z *= .5 + .5 * shadow;
   modColor.z = clamp(modColor.z, 0., 1.);
   modColor = hsv2rgb(modColor);
   
   color = vec4(modColor , 1.);
+  // color = vec4(vec3(shadow), 1.);
+  // color = vec4(shadowCoord.xy, 0., 1.);
   float d = linearizeDepth(length( vPosition ));
   position = vec4(vPosition, d);
   normal = vec4(n, 1.);
@@ -113,6 +147,7 @@ uniform float bias;
 uniform float radius;
 uniform vec2 attenuation;
 uniform float time;
+uniform sampler2D shadow;
 
 in vec2 vUv;
 
@@ -150,6 +185,9 @@ vec3 czm_saturation(vec3 rgb, float adjustment)
 }
 
 void main() {
+  // fragColor = texture(colorMap, vUv);
+  // return;
+
   vec2 size = vec2(textureSize(colorMap, 0));
   vec2 inc = 1. / size;
 
@@ -210,6 +248,15 @@ void main() {
   
 }`;
 
+const depthFragmentShader = `precision highp float;
+
+out vec4 depth;
+
+void main() {
+  float d = gl_FragCoord.z;
+  depth = vec4(d,d,d,1.);
+}`;
+
 class SSAO {
   constructor() {
     this.renderTarget = new WebGLMultipleRenderTargets(1, 1, 3);
@@ -219,10 +266,25 @@ class SSAO {
       texture.type = FloatType;
     }
 
+    this.shadowFBO = getFBO(2048, 2048, { type: FloatType });
+    this.depthMaterial = new RawShaderMaterial({
+      uniforms: {
+        near: { value: 0 },
+        far: { value: 0 },
+      },
+      vertexShader: vertexShader,
+      fragmentShader: depthFragmentShader,
+      glslVersion: GLSL3,
+    });
+
     this.shader = new RawShaderMaterial({
       uniforms: {
+        lightPos: { value: new Vector3() },
+        shadowViewMatrix: { value: new Matrix4() },
+        shadowProjectionMatrix: { value: new Matrix4() },
         far: { value: 0 },
         near: { value: 0 },
+        shadowMap: { value: this.shadowFBO.texture },
       },
       vertexShader,
       fragmentShader,
@@ -256,6 +318,7 @@ class SSAO {
         radius: { value: 20 },
         attenuation: { value: new Vector2(0.5, 5).multiplyScalar(s) },
         time: { value: 0 },
+        shadow: { value: this.shadowFBO.texture },
       },
       vertexShader: orthoVs,
       fragmentShader: ssaoFs,
@@ -277,12 +340,28 @@ class SSAO {
     this.pass.setSize(w, h);
   }
 
+  updateShadow(renderer, scene, camera) {
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
+    this.shader.uniforms.shadowProjectionMatrix.value.copy(
+      camera.projectionMatrix
+    );
+    this.shader.uniforms.shadowViewMatrix.value.copy(camera.matrixWorldInverse);
+
+    this.depthMaterial.uniforms.near.value = camera.near;
+    this.depthMaterial.uniforms.far.value = camera.far;
+    renderer.setRenderTarget(this.shadowFBO);
+    scene.overrideMaterial = this.depthMaterial;
+    renderer.render(scene, camera);
+    scene.overrideMaterial = null;
+  }
+
   get output() {
     return this.pass.texture;
   }
 
   render(renderer, scene, camera) {
-    this.shader.uniforms.near.value = 0; //camera.near;
+    this.shader.uniforms.near.value = camera.near;
     this.shader.uniforms.far.value = camera.far;
 
     renderer.setRenderTarget(this.renderTarget);
