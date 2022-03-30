@@ -13,11 +13,7 @@ import {
   WebGLRenderer,
   Scene,
   PerspectiveCamera,
-  DirectionalLight,
   TextureLoader,
-  HemisphereLight,
-  PCFSoftShadowMap,
-  AmbientLight,
 } from "./third_party/three.module.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
@@ -56,21 +52,6 @@ renderer.setClearColor(0xff00ff, 0);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.append(renderer.domElement);
 
-async function loadEnvMap() {
-  return new Promise((resolve, reject) => {
-    const loader = new TextureLoader();
-    const envMap = loader.load("./assets/studio_small_08.jpg", () => {
-      const equiToCube = new EquirectangularToCubemap(renderer);
-      const cubemap = equiToCube.convert(envMap, 1024);
-      ssao.shader.uniforms.envMap.value = cubemap;
-      resolve();
-    });
-  });
-}
-
-renderer.shadowMap.enabled = !true;
-renderer.shadowMap.type = PCFSoftShadowMap;
-
 const scene = new Scene();
 const camera = new PerspectiveCamera(75, 1, 0.01, 1000);
 camera.position.set(-2, 10, 10);
@@ -78,30 +59,6 @@ camera.lookAt(scene.position);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-
-const directLight = new DirectionalLight(0xffffff);
-directLight.position.set(-2, 1, -2);
-scene.add(directLight);
-directLight.castShadow = true;
-directLight.shadow.mapSize.width = 2048;
-directLight.shadow.mapSize.height = 2048;
-const d = 8;
-directLight.shadow.camera.left = -d;
-directLight.shadow.camera.right = d;
-directLight.shadow.camera.top = d;
-directLight.shadow.camera.bottom = -d;
-directLight.shadow.camera.near = -10;
-directLight.shadow.camera.far = 10;
-
-directLight.shadow.bias = -0.0001;
-window.l = directLight;
-
-const light = new HemisphereLight(0xffffff, 0x888888, 0.2);
-light.position.set(0, 1, 0);
-scene.add(light);
-
-const ambient = new AmbientLight(0x404040, 1);
-scene.add(ambient);
 
 const width = 1024;
 const height = 1024;
@@ -152,6 +109,9 @@ async function populateColorMap(lat, lng, zoom) {
       promises.push(
         new Promise(async (resolve, reject) => {
           const c = await fetchTile(mod(bx - x, maxW), mod(by - y, maxH), zoom);
+          loadedTiles++;
+          console.log(loadedTiles, totalTiles);
+          progress.progress = (loadedTiles * 100) / totalTiles;
           const dx = -(x + (cx % 1)) * c.naturalWidth;
           const dy = -(y + (cy % 1)) * c.naturalHeight;
           colorCtx.drawImage(c, dx, dy);
@@ -184,6 +144,9 @@ async function populateHeightMap(lat, lng, zoom) {
             mod(by - y, maxH),
             zoom
           );
+          loadedTiles++;
+          console.log(loadedTiles, totalTiles);
+          progress.progress = (loadedTiles * 100) / totalTiles;
           const dx = -(x + (cx % 1)) * c.naturalWidth;
           const dy = -(y + (cy % 1)) * c.naturalHeight;
           heightCtx.drawImage(c, dx, dy);
@@ -202,10 +165,19 @@ async function populateMaps(lat, lng, zoom) {
     populateHeightMap(lat, lng, zoom),
   ]);
   heightMap.processMaps(colorCtx, heightCtx);
+  progress.hide();
   console.log("done");
 }
 
+let loadedTiles = 0;
+let totalTiles = 0;
+
 async function load(lat, lng, zoom) {
+  console.log("LOAD");
+  loadedTiles = 0;
+  totalTiles = 6 * 6 + 4 * 4;
+  progress.progress = 0;
+  progress.show();
   populateMaps(lat, lng, zoom + 1);
 }
 
@@ -214,7 +186,6 @@ window.addEventListener("map-selection", async (e) => {
   const lng = e.detail.latLng.lng;
   const zoom = map.map.getZoom();
   window.location.hash = `${lat},${lng},${zoom}`;
-  await load(lat, lng, zoom);
 });
 
 function resize() {
@@ -332,22 +303,29 @@ function render() {
   time += (now - prevTime) * speed.value;
   prevTime = now;
 
-  // renderer.render(scene, directLight.shadow.camera);
-  // renderer.render(scene, camera);
   ssao.render(renderer, scene, camera);
 
   renderer.setAnimationLoop(render);
 }
 
-async function init() {
-  await Promise.all([map.ready, loadEnvMap()]);
+window.addEventListener("hashchange", async (e) => {
   const [lat, lng, zoom] = window.location.hash.substring(1).split(",");
-  if (lat && lng) {
+  if (lat && lng && zoom) {
+    map.moveTo(parseFloat(lat), parseFloat(lng));
+    map.map.setZoom(zoom);
+    await load(parseFloat(lat), parseFloat(lng), parseFloat(zoom));
+  }
+});
+
+async function init() {
+  await Promise.all([map.ready]);
+  const [lat, lng, zoom] = window.location.hash.substring(1).split(",");
+  if (lat && lng && zoom) {
     map.moveTo(parseFloat(lat), parseFloat(lng));
     map.map.setZoom(zoom);
     await load(parseFloat(lat), parseFloat(lng), parseFloat(zoom));
   } else {
-    //map.randomLocation();
+    map.randomLocation();
   }
   render();
 }
