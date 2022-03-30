@@ -75,10 +75,10 @@ function convertHeight(img) {
 // https://leaflet-extras.github.io/leaflet-providers/preview/
 
 async function fetchTile(x, y, z) {
-  //const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/${z}/${x}/${y}?access_token=${mapBoxKey}`;
+  // const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/${z}/${x}/${y}?access_token=${mapBoxKey}`;
   // const url = `https://map1.vis.earthdata.nasa.gov/wmts-webmerc/VIIRS_CityLights_2012/default//GoogleMapsCompatible_Level8/${z}/${y}/${x}.jpg`;
   // const url = `https://stamen-tiles-b.a.ssl.fastly.net/watercolor/${z}/${x}/${y}.jpg`;
-  //const url = `https://stamen-tiles-b.a.ssl.fastly.net/terrain-background/${z}/${x}/${y}.png`;
+  // const url = `https://stamen-tiles-b.a.ssl.fastly.net/terrain-background/${z}/${x}/${y}.png`;
   const url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
 
   const img = new Image();
