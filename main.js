@@ -14,6 +14,7 @@ import {
   Scene,
   PerspectiveCamera,
   TextureLoader,
+  OrthographicCamera,
 } from "./third_party/three.module.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
@@ -44,11 +45,11 @@ progress.hide();
 
 const renderer = new WebGLRenderer({
   antialias: true,
-  alpha: true,
+  //alpha: true,
   preserveDrawingBuffer: true,
   powerPreference: "high-performance",
 });
-renderer.setClearColor(0xff00ff, 0);
+renderer.setClearColor(0xffffff, 1);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.append(renderer.domElement);
 
@@ -110,7 +111,6 @@ async function populateColorMap(lat, lng, zoom) {
         new Promise(async (resolve, reject) => {
           const c = await fetchTile(mod(bx - x, maxW), mod(by - y, maxH), zoom);
           loadedTiles++;
-          console.log(loadedTiles, totalTiles);
           progress.progress = (loadedTiles * 100) / totalTiles;
           const dx = -(x + (cx % 1)) * c.naturalWidth;
           const dy = -(y + (cy % 1)) * c.naturalHeight;
@@ -145,7 +145,6 @@ async function populateHeightMap(lat, lng, zoom) {
             zoom
           );
           loadedTiles++;
-          console.log(loadedTiles, totalTiles);
           progress.progress = (loadedTiles * 100) / totalTiles;
           const dx = -(x + (cx % 1)) * c.naturalWidth;
           const dy = -(y + (cy % 1)) * c.naturalHeight;
@@ -159,12 +158,19 @@ async function populateHeightMap(lat, lng, zoom) {
   return Promise.all(promises);
 }
 
+const s = 7;
+const lightCamera = new OrthographicCamera(-s, s, s, -s, 10, 30);
+lightCamera.position.set(10, 10, 10);
+lightCamera.lookAt(scene.position);
+ssao.shader.uniforms.lightPos.value.copy(lightCamera.position);
+
 async function populateMaps(lat, lng, zoom) {
   await Promise.all([
     populateColorMap(lat, lng, zoom),
     populateHeightMap(lat, lng, zoom),
   ]);
   heightMap.processMaps(colorCtx, heightCtx);
+  ssao.updateShadow(renderer, scene, lightCamera);
   progress.hide();
   console.log("done");
 }
