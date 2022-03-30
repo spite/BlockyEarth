@@ -29,11 +29,6 @@ uniform mat4 modelViewMatrix;
 uniform mat3 normalMatrix;
 uniform mat4 modelMatrix;
 
-uniform float time;
-uniform float factor;
-uniform float blockiness;
-
-out vec4 vEyePosition;
 out vec3 vPosition;
 out vec3 vColor;
 out vec3 lDir;
@@ -46,8 +41,6 @@ void main() {
   vec2 vuv = p.xz;
   float h = height;
   vColor =  instanceColor;
-  // h = round(h*blockiness)/blockiness;
-  // h /= 5.;
   vec3 pp = position ;
   if(position.y < 0.) {
     pp.y = position.y;
@@ -58,7 +51,6 @@ void main() {
   vec4 fPos = instanceMatrix * vec4(pp, 1.0);
   vMPosition = modelMatrix * fPos;
   vec4 mvPosition = modelViewMatrix * fPos;
-  vEyePosition = mvPosition;
   vPosition = mvPosition.xyz / mvPosition.w;
   gl_Position = projectionMatrix * mvPosition;
 }`;
@@ -72,11 +64,9 @@ layout(location = 2) out vec4 normal;
 uniform float near;
 uniform float far;
 uniform sampler2D matcap;
-uniform samplerCube envMap;
 uniform mat3 normalMatrix;
 uniform vec3 cameraPosition;
 
-in vec4 vEyePosition;
 in vec3 vPosition;
 in vec3 lDir;
 in vec3 vColor;
@@ -89,31 +79,16 @@ float linearizeDepth(float z) {
 
 ${hsl}
 
-vec2 matCapUV(in vec3 eye, in vec3 normal) {
-  vec3 r = reflect(eye, normal);
-  float m = 2.82842712474619 * sqrt(r.z + 1.0);
-  vec2 vN = r.xy / m + .5;
-  return vN;
-}
-
 void main() {
   vec3 X = dFdx(vPosition);
   vec3 Y = dFdy(vPosition);
   vec3 n = normalize(cross(X,Y));
 
   float diffuse = max(0., dot(n, lDir));
-  float level = vColor.x;
 
   vec3 e = normalize(-vPosition.xyz);
   vec3 h = normalize(lDir + e);
   float specular = pow(max(dot(n, h), 0.), 20.);
-
-  // vec3 t = normalize(vMPosition.xyz - cameraPosition);
-  // vec3 refl = normalize(reflect(t, n));
-  // vec4 c1 = texture(envMap, refl, 5.);
-  // vec4 c2 = texture(envMap, vNormal, 10.);
-  // specular = c1.r;
-  // diffuse = c2.r;
 
   vec3 c = vColor;
   vec3 modColor = rgb2hsv(c);
@@ -121,17 +96,8 @@ void main() {
   modColor.z += .2 * specular;
   modColor.z = clamp(modColor.z, 0., 1.);
   modColor = hsv2rgb(modColor);
-
-  // modColor = vec3(diffuse + specular);
-  // modColor = mix(modColor, vec3(1.,1.,1.), specular);
-
-  // modColor *= texture(matcap, matCapUV(normalize(vEyePosition.xyz), normalize( n))).rrr;
-
-  // modColor.rgb *= c1.r;
-  color = vec4(modColor , 1.);//vec4(diffuse);//vec4(vec3(.75 + diffuse), 1.);
-  // color = vec4(vec3(diffuse + specular), 1.);
-  // color = vec4(vNormal, 1.);
-  // color = vec4(vec3(max(diffuse, specular)), 1.);
+  
+  color = vec4(modColor , 1.);
   float d = linearizeDepth(length( vPosition ));
   position = vec4(vPosition, d);
   normal = vec4(n, 1.);
@@ -244,10 +210,6 @@ void main() {
   
 }`;
 
-const loader = new TextureLoader();
-// const matcap = loader.load("./assets/matcap-sky.png");
-const matcap = loader.load("./assets/plastic-red.jpg");
-
 class SSAO {
   constructor() {
     this.renderTarget = new WebGLMultipleRenderTargets(1, 1, 3);
@@ -261,11 +223,6 @@ class SSAO {
       uniforms: {
         far: { value: 0 },
         near: { value: 0 },
-        envMap: { value: null },
-        matcap: { value: matcap },
-        factor: { value: 0 },
-        time: { value: 0 },
-        blockiness: { value: 100 },
       },
       vertexShader,
       fragmentShader,
