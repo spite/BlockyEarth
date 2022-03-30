@@ -20,7 +20,7 @@ import { RoundedBoxGeometry } from "./third_party/RoundedBoxGeometry.js";
 import { generateRoundedPrismGeometry } from "./RoundedPrismGeomtry.js";
 import { generatePlasticBrickGeometry } from "./PlasticBrickGeometry.js";
 import { getNextZenHeight } from "./mapbox.js";
-//import { GLTFExporter } from "./third_party/GLTFExporter.js";
+import { GLTFExporter } from "./third_party/GLTFExporter.js";
 import { PLYExporter } from "./third_party/PLYExporter.js";
 import { downloadArrayBuffer, downloadStr } from "./download.js";
 
@@ -96,7 +96,7 @@ class HeightMap {
   }
 
   filter(v) {
-    return true;
+    // return true;
     return this.filterCircle(v);
     return this.filterHexagon(v);
   }
@@ -291,15 +291,35 @@ class HeightMap {
   bakeGLTF() {
     const exporter = new GLTFExporter();
     const scene = new Scene();
-    const group = new Group();
-    scene.add(group);
+    const material = new MeshBasicMaterial({ vertexColors: true });
+    const mat = new Matrix4();
+    const position = new Vector3();
+    const quaternion = new Quaternion();
+    const scale = new Vector3();
+    const c = new Color();
+
     for (let i = 0; i < this.mesh.instanceMatrix.count; i++) {
-      const dummy = new Mesh(this.geo, new MeshStandardMaterial());
-      this.mesh.getMatrixAt(i, dummy.matrix);
-      this.mesh.getColorAt(i, dummy.material.color);
-      dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
-      dummy.position.y = this.mesh.geometry.attributes.height.array[i];
-      group.add(dummy);
+      const geo = this.geo.clone();
+      geo.setAttribute(
+        "color",
+        new BufferAttribute(
+          new Float32Array(geo.attributes.position.count * 3),
+          3
+        )
+      );
+      this.mesh.getMatrixAt(i, mat);
+      this.mesh.getColorAt(i, c);
+      for (let i = 0; i < geo.attributes.position.count * 3; i += 3) {
+        geo.attributes.color.array[i] = c.r;
+        geo.attributes.color.array[i + 1] = c.g;
+        geo.attributes.color.array[i + 2] = c.b;
+      }
+      mat.decompose(position, quaternion, scale);
+      position.y = this.mesh.geometry.attributes.height.array[i];
+      geo.translate(position.x, position.y, position.z);
+      geo.scale(scale.x, scale.y, scale.z);
+      const mesh = new Mesh(geo, material);
+      scene.add(mesh);
     }
     const options = {
       binary: true,
@@ -320,6 +340,7 @@ class HeightMap {
 
   bake() {
     this.bakePLY();
+    // this.bakeGLTF();
   }
 
   bakePLY() {
