@@ -63,8 +63,8 @@ controls.enableDamping = true;
 
 const width = 1024;
 const height = 1024;
-const heightMap = new HeightMap(width, height, 16);
-heightMap.verticalScale = 10;
+const heightMap = new HeightMap(width, height, 2);
+heightMap.verticalScale = 40;
 scene.add(heightMap.mesh);
 
 let currentLocation;
@@ -159,8 +159,8 @@ async function populateHeightMap(lat, lng, zoom) {
 }
 
 const s = 7;
-const lightCamera = new OrthographicCamera(-s, s, s, -s, 10, 30);
-lightCamera.position.set(10, 10, 10);
+const lightCamera = new OrthographicCamera(-s, s, s, -s, 5, 30);
+lightCamera.position.set(5, 7.5, -10);
 lightCamera.lookAt(scene.position);
 ssao.shader.uniforms.lightPos.value.copy(lightCamera.position);
 
@@ -317,8 +317,8 @@ function render() {
 window.addEventListener("hashchange", async (e) => {
   const [lat, lng, zoom] = window.location.hash.substring(1).split(",");
   if (lat && lng && zoom) {
-    map.moveTo(parseFloat(lat), parseFloat(lng));
     map.map.setZoom(zoom);
+    map.moveTo(parseFloat(lat), parseFloat(lng));
     await load(parseFloat(lat), parseFloat(lng), parseFloat(zoom));
   }
 });
