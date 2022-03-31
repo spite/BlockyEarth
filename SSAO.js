@@ -49,7 +49,7 @@ const mat4 biasMatrix = mat4(
 );
 
 void main() {
-  lDir = normalize(lightPos);
+  lDir = normalMatrix * normalize(lightPos);
   vec4 p = instanceMatrix * vec4(0., 0., 0., 1.);
   vec2 vuv = p.xz;
   float h = height;
@@ -96,40 +96,80 @@ float linearizeDepth(float z) {
 
 ${hsl}
 
-const float bias = 0.005;
+const float jitter = 1.;
+const float bias = 0.0005;
 
-float sampleVisibility(vec3 coord) {
-  float depth = texture(shadowMap, coord.xy).r;
+float random(vec4 seed4){
+  float dot_product = dot(seed4, vec4(12.9898,78.233,45.164,94.673));
+  return fract(sin(dot_product) * 43758.5453);
+}
+
+float unpackDepth( const in vec4 rgba_depth ) {
+  const vec4 bit_shift = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
+  return dot(rgba_depth, bit_shift);
+}
+
+float sampleVisibility(vec3 coord, vec2 shadowResolution) {
+  vec2 jitter = jitter * vec2(.5 - random(vec4(gl_FragCoord.xyz, bias)))/shadowResolution;
+  float depth = unpackDepth(texture(shadowMap, coord.xy + jitter));
   float visibility  = (coord.z - depth > bias ) ? 0. : 1.;
   return visibility;
 }
 
+vec3 random3(vec3 c) {
+	float j = 4096.0*sin(dot(c,vec3(17.0, 59.4, 15.0)));
+	vec3 r;
+	r.z = fract(512.0*j);
+	j *= .125;
+	r.x = fract(512.0*j);
+	j *= .125;
+	r.y = fract(512.0*j);
+	return r-0.5;
+}
+
+
 void main() {
   vec3 X = dFdx(vPosition);
   vec3 Y = dFdy(vPosition);
-  vec3 n = normalize(cross(X,Y));
+  vec3 offset = .1 * random3(vPosition.xyz);
+  vec3 n = normalize(normalize(cross(X,Y)) + offset);
+
+  vec3 ld = normalize(lDir);
+  float diffuse = max(0., dot(n, ld));
+
+  vec2 shadowResolution = vec2(textureSize(shadowMap, 0));
 
   float shadow = 0.;
 	vec3 shadowCoord = vShadowCoord.xyz / vShadowCoord.w;
-  if( shadowCoord.x >= 0. || shadowCoord.x <= 1. || shadowCoord.y >= 0. || shadowCoord.y <= 1. ) {
-    shadow += sampleVisibility(shadowCoord);
+  if( diffuse > 0. && shadowCoord.x >= 0. || shadowCoord.x <= 1. || shadowCoord.y >= 0. || shadowCoord.y <= 1. ) {
+    float step = 1.;//4. * shadowCoord.z;
+    float incX = step / shadowResolution.x;
+    float incY = step / shadowResolution.y;
+
+    shadow += sampleVisibility(shadowCoord + vec3(0., -incY, 0.), shadowResolution);
+    shadow += sampleVisibility(shadowCoord + vec3(-incX, 0., 0.), shadowResolution);
+    shadow += sampleVisibility(shadowCoord + vec3(0., 0., 0.), shadowResolution);
+    shadow += sampleVisibility(shadowCoord + vec3(incX, 0., 0.), shadowResolution);
+    shadow += sampleVisibility(shadowCoord + vec3(0., incY, 0.), shadowResolution);
+
+    shadow /= 5.;
   }
 
-  float diffuse = max(0., dot(n, lDir));
-
   vec3 e = normalize(-vPosition.xyz);
-  vec3 h = normalize(lDir + e);
-  float specular = pow(max(dot(n, h), 0.), 20.);
+  vec3 h = normalize(ld + e);
+  float specular = pow(max(dot(n, h), 0.), 50.);
   
-  vec3 c = vColor;
-  vec3 modColor = rgb2hsv(c);
+  vec3 modColor = rgb2hsv(vColor);
+  modColor.z *= .5 + .5 * diffuse * shadow;
   modColor.z += .2 * diffuse;
-  modColor.z += .2 * specular;
-  modColor.z *= .5 + .5 * shadow;
+  modColor.z += .2 * specular * shadow;
   modColor.z = clamp(modColor.z, 0., 1.);
   modColor = hsv2rgb(modColor);
+  modColor += .1 * specular * shadow;
   
   color = vec4(modColor , 1.);
+  // color = vec4(vec3(diffuse*shadow), 1.);
+  // color = vec4(vec3(diffuse * (.5 + .5 * shadow)), 1.);
   // color = vec4(vec3(shadow), 1.);
   // color = vec4(shadowCoord.xy, 0., 1.);
   float d = linearizeDepth(length( vPosition ));
@@ -185,6 +225,7 @@ vec3 czm_saturation(vec3 rgb, float adjustment)
 }
 
 void main() {
+  // fragColor = texture(shadow, vUv);
   // fragColor = texture(colorMap, vUv);
   // return;
 
@@ -240,7 +281,7 @@ void main() {
 	hsl.z *=  (1.-occlusion);
 	hsl.y *= .5 + .5 * (1.-occlusion);
   hsl.z = clamp(hsl.z, 0., 1.);
-  hsl.y = clamp(hsl.t, 0., 1.);
+  hsl.y = clamp(hsl.y, 0., 1.);
 	vec3 finalColor = czm_saturation(hsv2rgb(hsl), 1.5 + occlusion);
   // vec4 finalColor = color;
 
@@ -252,9 +293,16 @@ const depthFragmentShader = `precision highp float;
 
 out vec4 depth;
 
+vec4 packDepth(const in float depth) {
+  const vec4 bit_shift = vec4(256.0*256.0*256.0, 256.0*256.0, 256.0, 1.0);
+  const vec4 bit_mask  = vec4(0.0, 1.0/256.0, 1.0/256.0, 1.0/256.0);
+  vec4 res = mod(depth*bit_shift*vec4(255), vec4(256))/vec4(255);
+  res -= res.xxyz * bit_mask;
+  return res;
+}
+
 void main() {
-  float d = gl_FragCoord.z;
-  depth = vec4(d,d,d,1.);
+  depth = packDepth(gl_FragCoord.z);
 }`;
 
 class SSAO {
@@ -266,7 +314,7 @@ class SSAO {
       texture.type = FloatType;
     }
 
-    this.shadowFBO = getFBO(2048, 2048, { type: FloatType });
+    this.shadowFBO = getFBO(2048, 2048, {});
     this.depthMaterial = new RawShaderMaterial({
       uniforms: {
         near: { value: 0 },
