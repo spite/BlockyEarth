@@ -82,6 +82,7 @@ uniform sampler2D matcap;
 uniform sampler2D shadowMap;
 uniform mat3 normalMatrix;
 uniform vec3 cameraPosition;
+uniform float time;
 
 in vec3 vPosition;
 in vec3 lDir;
@@ -109,11 +110,11 @@ float unpackDepth( const in vec4 rgba_depth ) {
   return dot(rgba_depth, bit_shift);
 }
 
-float sampleVisibility(vec3 coord, vec2 shadowResolution) {
-  vec2 jitter = jitter * vec2(.5 - random(vec4(gl_FragCoord.xyz, bias)))/shadowResolution;
-  float depth = unpackDepth(texture(shadowMap, coord.xy + jitter));
-  float visibility  = (coord.z - depth > bias ) ? 0. : 1.;
-  return visibility;
+float sampleVisibility(vec3 coord) {
+  float depth = unpackDepth(texture(shadowMap, coord.xy));
+  return step(coord.z, depth + bias);
+  // float visibility  = (coord.z - depth > bias ) ? 0. : 1.;
+  // return visibility;
 }
 
 vec3 random3(vec3 c) {
@@ -142,18 +143,22 @@ void main() {
   float shadow = 0.;
 	vec3 shadowCoord = vShadowCoord.xyz / vShadowCoord.w;
   if( diffuse > 0. && shadowCoord.x >= 0. || shadowCoord.x <= 1. || shadowCoord.y >= 0. || shadowCoord.y <= 1. ) {
-    float step = 1.;//4. * shadowCoord.z;
+    // for(float r= 1.; r<4.; r++) {
+    float step = 1.;
     float incX = step / shadowResolution.x;
     float incY = step / shadowResolution.y;
 
-    shadow += sampleVisibility(shadowCoord + vec3(0., -incY, 0.), shadowResolution);
-    shadow += sampleVisibility(shadowCoord + vec3(-incX, 0., 0.), shadowResolution);
-    shadow += sampleVisibility(shadowCoord + vec3(0., 0., 0.), shadowResolution);
-    shadow += sampleVisibility(shadowCoord + vec3(incX, 0., 0.), shadowResolution);
-    shadow += sampleVisibility(shadowCoord + vec3(0., incY, 0.), shadowResolution);
+    // vec2 j = jitter * vec2(.5 - random(vec4(vPosition.xyz, time))) * step / shadowResolution;
 
-    shadow /= 5.;
+    shadow += sampleVisibility(shadowCoord + vec3(0., -incY, 0.));
+    shadow += sampleVisibility(shadowCoord + vec3(-incX, 0., 0.));
+    shadow += sampleVisibility(shadowCoord + vec3(0., 0., 0.));
+    shadow += sampleVisibility(shadowCoord + vec3(incX, 0., 0.));
+    shadow += sampleVisibility(shadowCoord + vec3(0., incY, 0.));
+    // }
   }
+  shadow /= 5.;
+  // shadow /= 20.;
 
   vec3 e = normalize(-vPosition.xyz);
   vec3 h = normalize(ld + e);
@@ -165,8 +170,9 @@ void main() {
   modColor.z += .2 * specular * shadow;
   modColor.z = clamp(modColor.z, 0., 1.);
   modColor = hsv2rgb(modColor);
-  modColor += .1 * specular * shadow;
-  
+  // modColor += .1 * specular * shadow;
+  modColor = mix(modColor, vec3(1.), .5 * specular * shadow);
+
   color = vec4(modColor , 1.);
   // color = vec4(vec3(diffuse*shadow), 1.);
   // color = vec4(vec3(diffuse * (.5 + .5 * shadow)), 1.);
@@ -411,6 +417,8 @@ class SSAO {
   render(renderer, scene, camera) {
     this.shader.uniforms.near.value = camera.near;
     this.shader.uniforms.far.value = camera.far;
+
+    this.ssaoShader.uniforms.time.value = performance.now() / 1000;
 
     renderer.setRenderTarget(this.renderTarget);
     scene.overrideMaterial = this.shader;
