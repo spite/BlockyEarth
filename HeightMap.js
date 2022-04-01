@@ -23,6 +23,7 @@ import { getNextZenHeight } from "./mapbox.js";
 import { GLTFExporter } from "./third_party/GLTFExporter.js";
 import { PLYExporter } from "./third_party/PLYExporter.js";
 import { downloadArrayBuffer, downloadStr } from "./download.js";
+import { getClosestColor } from "./colors.js";
 
 const RoundedBox = Symbol("RoundedBox");
 const Hexagon = Symbol("Hexagon");
@@ -39,7 +40,7 @@ class HeightMap {
     this.step = step;
     this.boxScale = 0.01 * step;
     this.points = [];
-    this.verticalScale = 20;
+    this.verticalScale = 80;
 
     this.mode = PlasticBrick;
     // this.generateBoxGeometry();
@@ -96,8 +97,8 @@ class HeightMap {
   }
 
   filter(v) {
-    // return true;
-    return this.filterCircle(v);
+    return true;
+    // return this.filterCircle(v);
     return this.filterHexagon(v);
   }
 
@@ -188,6 +189,7 @@ class HeightMap {
   updatePositions() {
     let i = 0;
     this.mesh.count = this.points.length;
+    console.log(this.points.length);
     for (const p of this.points) {
       dummy.position.copy(p.v);
       dummy.updateMatrix();
@@ -274,13 +276,13 @@ class HeightMap {
       h = ((h - min) / (max - min)) * this.verticalScale;
       min2 = Math.min(min2, h);
       max2 = Math.max(max2, h);
-      h = Math.floor(h / 0.5) * 0.5;
+      h = Math.floor(h / 0.25) * 0.25;
       h = 1 + h;
 
       const c = this.getColor(colorData.data, Math.floor(p.x), Math.floor(p.y));
 
       heights[i] = h * this.boxScale;
-      this.mesh.setColorAt(i, c);
+      this.mesh.setColorAt(i, getClosestColor(c));
       i++;
     }
 
