@@ -24,7 +24,7 @@ import { HeightMap } from "./HeightMap.js";
 import { EquirectangularToCubemap } from "./modules/EquirectangularToCubemap.js";
 
 const ssao = new SSAO();
-
+window.ssao = ssao;
 const speed = twixt.create("speed", 1);
 const textureScale = twixt.create("scale", 2);
 const innerScatter = twixt.create("innerScatter", 5);
@@ -38,7 +38,6 @@ const smoothness = twixt.create("smoothness", 0);
 const map = document.querySelector("#map-browser");
 const progress = document.querySelector("progress-bar");
 const snackbar = document.querySelector("snack-bar");
-const description = document.querySelector("#description");
 map.snackbar = snackbar;
 
 progress.hide();
@@ -49,8 +48,10 @@ const renderer = new WebGLRenderer({
   preserveDrawingBuffer: true,
   powerPreference: "high-performance",
 });
-renderer.setClearColor(0xffffff, 1);
+renderer.setClearColor(0, 0);
 renderer.setPixelRatio(window.devicePixelRatio);
+renderer.autoClear = false;
+
 document.body.append(renderer.domElement);
 
 const scene = new Scene();
@@ -59,11 +60,14 @@ camera.position.set(-2, 10, 10);
 camera.lookAt(scene.position);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
+// controls.enableDamping = true;
+controls.addEventListener("change", () => {
+  ssao.reset();
+});
 
 const width = 1024;
 const height = 1024;
-const heightMap = new HeightMap(width, height, 2);
+const heightMap = new HeightMap(width, height, 16);
 heightMap.verticalScale = 40;
 scene.add(heightMap.mesh);
 
@@ -172,6 +176,7 @@ async function populateMaps(lat, lng, zoom) {
   heightMap.processMaps(colorCtx, heightCtx);
   ssao.updateShadow(renderer, scene, lightCamera);
   progress.hide();
+  ssao.reset();
   console.log("done");
 }
 
@@ -271,32 +276,15 @@ document.querySelector("#snapBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-document.querySelector("#chromeBtn").addEventListener("click", (e) => {
-  textureScale.to(1);
-  innerScatter.to(0, 200);
-  outerScatter.to(0, 200);
-  normalScale.to(0, 200);
-  reflectivity.to(1, 200);
-  roughness.to(0, 200);
-  smoothness.to(0, 200);
-  darkness.to(0, 200);
+document.querySelector("#boxBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-document.querySelector("#glassBtn").addEventListener("click", (e) => {
-  textureScale.to(1);
-  innerScatter.to(0, 200);
-  outerScatter.to(0, 200);
-  normalScale.to(0, 200);
-  reflectivity.to(0, 200);
-  smoothness.to(0, 200);
-  roughness.to(0, 200);
-  darkness.to(0, 200);
+document.querySelector("#brickBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-document.querySelector("#randomBtn").addEventListener("click", (e) => {
-  randomize();
+document.querySelector("#hexagonBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
