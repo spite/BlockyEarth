@@ -72,7 +72,6 @@ const size = new Vector2();
 
 function updateProjectionMatrixJitter(camera, renderer) {
   const [offsetX, offsetY] = jitterTable[jitterPointer];
-  jitterPointer = (jitterPointer + 1) % jitterTable.length;
 
   var near = camera.near,
     top = (near * Math.tan(MathUtils.DEG2RAD * 0.5 * camera.fov)) / camera.zoom,
@@ -115,4 +114,8 @@ function updateProjectionMatrixJitter(camera, renderer) {
   // camera.projectionMatrixInverse.getInverse(camera.projectionMatrix);
 }
 
-export { updateProjectionMatrixJitter };
+function incPointer() {
+  jitterPointer = (jitterPointer + 1) % jitterTable.length;
+}
+
+export { updateProjectionMatrixJitter, incPointer };
