@@ -19,7 +19,7 @@ import { shader as orthoVs } from "./shaders/ortho.js";
 import { shader as hsl } from "./shaders/hsl.js";
 import { shader as screen } from "./shaders/screen.js";
 import { getFBO } from "./modules/fbo.js";
-import { updateProjectionMatrixJitter } from "./jitter.js";
+import { updateProjectionMatrixJitter, incPointer } from "./jitter.js";
 
 const vertexShader = `precision highp float;
 
@@ -150,8 +150,6 @@ void main() {
     float step = 1.;
     float incX = step / shadowResolution.x;
     float incY = step / shadowResolution.y;
-
-    vec2 j = 2. * jitter * vec2(.5 - random(vec4(vPosition.xyz, time))) * step / shadowResolution;
 
     shadow += sampleVisibility(shadowCoord + vec3(0., -incY, 0.));
     shadow += sampleVisibility(shadowCoord + vec3(-incX, 0., 0.));
@@ -434,6 +432,7 @@ class SSAO {
   updateShadow(renderer, scene, camera) {
     camera.updateMatrixWorld();
     camera.updateProjectionMatrix();
+    updateProjectionMatrixJitter(camera, renderer);
     this.shader.uniforms.shadowProjectionMatrix.value.copy(
       camera.projectionMatrix
     );
@@ -456,7 +455,7 @@ class SSAO {
     this.invalidate = true;
   }
 
-  render(renderer, scene, camera) {
+  render(renderer, scene, camera, lightCamera) {
     if (this.invalidate) {
       this.accumPass.shader.uniforms.samples.value = 0;
       renderer.setRenderTarget(this.pass.fbo);
@@ -468,6 +467,8 @@ class SSAO {
     if (this.accumPass.shader.uniforms.samples.value === 8) {
       return;
     }
+
+    this.updateShadow(renderer, scene, lightCamera);
 
     updateProjectionMatrixJitter(camera, renderer);
 
@@ -488,6 +489,8 @@ class SSAO {
     this.accumPass.shader.uniforms.samples.value++;
 
     this.accumPass.render(renderer, true);
+
+    incPointer();
   }
 }
 
