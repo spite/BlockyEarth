@@ -13,7 +13,6 @@ import {
   WebGLRenderer,
   Scene,
   PerspectiveCamera,
-  TextureLoader,
   OrthographicCamera,
 } from "./third_party/three.module.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
@@ -67,8 +66,8 @@ controls.addEventListener("change", () => {
 
 const width = 1024;
 const height = 1024;
-const heightMap = new HeightMap(width, height, 16);
-heightMap.verticalScale = 40;
+const heightMap = new HeightMap(width, height, 8);
+heightMap.verticalScale = 10;
 scene.add(heightMap.mesh);
 
 let currentLocation;
@@ -163,7 +162,8 @@ async function populateHeightMap(lat, lng, zoom) {
 }
 
 const s = 7;
-const lightCamera = new OrthographicCamera(-s, s, s, -s, 5, 30);
+//const lightCamera = new OrthographicCamera(-s, s, s, -s, 5, 30);
+const lightCamera = new PerspectiveCamera(65, 1, 5, 30);
 lightCamera.position.set(5, 7.5, -10);
 lightCamera.lookAt(scene.position);
 ssao.shader.uniforms.lightPos.value.copy(lightCamera.position);
@@ -174,7 +174,7 @@ async function populateMaps(lat, lng, zoom) {
     populateHeightMap(lat, lng, zoom),
   ]);
   heightMap.processMaps(colorCtx, heightCtx);
-  ssao.updateShadow(renderer, scene, lightCamera);
+  //ssao.updateShadow(renderer, scene, lightCamera);
   progress.hide();
   ssao.reset();
   console.log("done");
@@ -297,7 +297,7 @@ function render() {
   time += (now - prevTime) * speed.value;
   prevTime = now;
 
-  ssao.render(renderer, scene, camera);
+  ssao.render(renderer, scene, camera, lightCamera);
 
   renderer.setAnimationLoop(render);
 }
