@@ -9,14 +9,17 @@ import {
   Mesh,
   Vector2,
   PlaneBufferGeometry,
+  AdditiveBlending,
   OrthographicCamera,
   Vector3,
+  RGBAFormat,
   Matrix4,
-} from "./third_party/three.module.js";
+} from "three";
 import { shader as orthoVs } from "./shaders/ortho.js";
 import { shader as hsl } from "./shaders/hsl.js";
 import { shader as screen } from "./shaders/screen.js";
 import { getFBO } from "./modules/fbo.js";
+import { updateProjectionMatrixJitter } from "./jitter.js";
 
 const vertexShader = `precision highp float;
 
@@ -132,7 +135,7 @@ vec3 random3(vec3 c) {
 void main() {
   vec3 X = dFdx(vPosition);
   vec3 Y = dFdy(vPosition);
-  vec3 offset = .1 * random3(vPosition.xyz);
+  vec3 offset = 1.* .1 * random3(vPosition.xyz + time);
   vec3 n = normalize(normalize(cross(X,Y)) + offset);
 
   vec3 ld = normalize(lDir);
@@ -148,7 +151,7 @@ void main() {
     float incX = step / shadowResolution.x;
     float incY = step / shadowResolution.y;
 
-    // vec2 j = jitter * vec2(.5 - random(vec4(vPosition.xyz, time))) * step / shadowResolution;
+    vec2 j = 2. * jitter * vec2(.5 - random(vec4(vPosition.xyz, time))) * step / shadowResolution;
 
     shadow += sampleVisibility(shadowCoord + vec3(0., -incY, 0.));
     shadow += sampleVisibility(shadowCoord + vec3(-incX, 0., 0.));
@@ -162,7 +165,7 @@ void main() {
 
   vec3 e = normalize(-vPosition.xyz);
   vec3 h = normalize(ld + e);
-  float specular = pow(max(dot(n, h), 0.), 50.);
+  float specular = pow(max(dot(n, h), 0.), 150.);
   
   vec3 modColor = rgb2hsv(vColor);
   modColor.z *= .5 + .5 * diffuse * shadow;
@@ -171,7 +174,7 @@ void main() {
   modColor.z = clamp(modColor.z, 0., 1.);
   modColor = hsv2rgb(modColor);
   // modColor += .1 * specular * shadow;
-  modColor = mix(modColor, vec3(1.), .5 * specular * shadow);
+  modColor = mix(modColor, vec3(1.), 1. * specular * shadow);
 
   color = vec4(modColor , 1.);
   // color = vec4(vec3(diffuse*shadow), 1.);
@@ -311,8 +314,25 @@ void main() {
   depth = packDepth(gl_FragCoord.z);
 }`;
 
+const accumFs = `
+precision highp float;
+uniform sampler2D colorTexture;
+uniform float samples;
+
+in vec2 vUv;
+
+out vec4 fragColor;
+
+void main() {
+  vec4 c = texture(colorTexture, vUv);
+  vec3 color = c.rgb / samples;
+  fragColor = vec4(color, 1.);
+}
+`;
+
 class SSAO {
   constructor() {
+    this.invalidate = true;
     this.renderTarget = new WebGLMultipleRenderTargets(1, 1, 3);
     for (const texture of this.renderTarget.texture) {
       texture.minFilter = NearestFilter;
@@ -374,11 +394,26 @@ class SSAO {
         time: { value: 0 },
         shadow: { value: this.shadowFBO.texture },
       },
+      blending: AdditiveBlending,
       vertexShader: orthoVs,
       fragmentShader: ssaoFs,
       glslVersion: GLSL3,
     });
-    this.pass = new ShaderPass(this.ssaoShader, {});
+    this.pass = new ShaderPass(this.ssaoShader, {
+      format: RGBAFormat,
+      type: FloatType,
+    });
+
+    this.accumShader = new RawShaderMaterial({
+      uniforms: {
+        colorTexture: { value: this.pass.texture },
+        samples: { value: 0 },
+      },
+      vertexShader: orthoVs,
+      fragmentShader: accumFs,
+      glslVersion: GLSL3,
+    });
+    this.accumPass = new ShaderPass(this.accumShader);
   }
 
   setSize(width, height, dpr) {
@@ -392,6 +427,8 @@ class SSAO {
     this.camera.bottom = -h / 2;
     this.camera.updateProjectionMatrix();
     this.pass.setSize(w, h);
+    this.accumPass.setSize(w, h);
+    this.reset();
   }
 
   updateShadow(renderer, scene, camera) {
@@ -405,6 +442,7 @@ class SSAO {
     this.depthMaterial.uniforms.near.value = camera.near;
     this.depthMaterial.uniforms.far.value = camera.far;
     renderer.setRenderTarget(this.shadowFBO);
+    renderer.clear();
     scene.overrideMaterial = this.depthMaterial;
     renderer.render(scene, camera);
     scene.overrideMaterial = null;
@@ -414,19 +452,42 @@ class SSAO {
     return this.pass.texture;
   }
 
+  reset() {
+    this.invalidate = true;
+  }
+
   render(renderer, scene, camera) {
+    if (this.invalidate) {
+      this.accumPass.shader.uniforms.samples.value = 0;
+      renderer.setRenderTarget(this.pass.fbo);
+      renderer.clear();
+      renderer.setRenderTarget(null);
+      this.invalidate = false;
+    }
+
+    if (this.accumPass.shader.uniforms.samples.value === 8) {
+      return;
+    }
+
+    updateProjectionMatrixJitter(camera, renderer);
+
     this.shader.uniforms.near.value = camera.near;
     this.shader.uniforms.far.value = camera.far;
 
     this.ssaoShader.uniforms.time.value = performance.now() / 1000;
 
     renderer.setRenderTarget(this.renderTarget);
+    // renderer.setClearColor(0xffffff, 1);
+    renderer.clear();
     scene.overrideMaterial = this.shader;
     renderer.render(scene, camera);
     scene.overrideMaterial = null;
     renderer.setRenderTarget(null);
+    this.pass.render(renderer);
 
-    this.pass.render(renderer, true);
+    this.accumPass.shader.uniforms.samples.value++;
+
+    this.accumPass.render(renderer, true);
   }
 }
 
