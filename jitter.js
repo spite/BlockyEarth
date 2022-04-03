@@ -68,9 +68,7 @@ function makePerspectiveJitter(
   return mat;
 }
 
-const size = new Vector2();
-
-function updateProjectionMatrixJitter(camera, renderer) {
+function updateProjectionMatrixJitter(camera, size) {
   const [offsetX, offsetY] = jitterTable[jitterPointer];
 
   var near = camera.near,
@@ -92,9 +90,6 @@ function updateProjectionMatrixJitter(camera, renderer) {
 
   var skew = camera.filmOffset;
   if (skew !== 0) left += (near * skew) / camera.getFilmWidth();
-
-  renderer.getSize(size);
-  size.multiplyScalar(renderer.getPixelRatio());
 
   makePerspectiveJitter(
     camera.projectionMatrix,
@@ -118,4 +113,8 @@ function incPointer() {
   jitterPointer = (jitterPointer + 1) % jitterTable.length;
 }
 
-export { updateProjectionMatrixJitter, incPointer };
+function resetPointer() {
+  jitterPointer = 0;
+}
+
+export { updateProjectionMatrixJitter, incPointer, resetPointer };
