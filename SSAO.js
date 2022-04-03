@@ -24,6 +24,7 @@ import {
   incPointer,
   resetPointer,
 } from "./jitter.js";
+import { BackSide } from "./third_party/three.module.js";
 
 const vertexShader = `precision highp float;
 
@@ -104,12 +105,15 @@ float linearizeDepth(float z) {
 
 ${hsl}
 
-const float jitter = 1.;
-const float bias = 0.0005;
+const float bias = 0.00005;
 
 float random(vec4 seed4){
   float dot_product = dot(seed4, vec4(12.9898,78.233,45.164,94.673));
   return fract(sin(dot_product) * 43758.5453);
+}
+
+float random(vec2 n){
+	return fract(sin(dot(n.xy, vec2(12.9898, 78.233)))* 43758.5453);
 }
 
 float unpackDepth( const in vec4 rgba_depth ) {
@@ -120,8 +124,6 @@ float unpackDepth( const in vec4 rgba_depth ) {
 float sampleVisibility(vec3 coord) {
   float depth = unpackDepth(texture(shadowMap, coord.xy));
   return step(coord.z, depth + bias);
-  // float visibility  = (coord.z - depth > bias ) ? 0. : 1.;
-  // return visibility;
 }
 
 vec3 random3(vec3 c) {
@@ -135,12 +137,25 @@ vec3 random3(vec3 c) {
 	return r-0.5;
 }
 
-
 void main() {
+
+  vec2 jitterTable[8];
+  jitterTable[0] = vec2(0.5625, 0.4375);
+  jitterTable[1] = vec2(0.0625, 0.9375);
+  jitterTable[2] = vec2(0.3125, 0.6875);
+  jitterTable[3] = vec2(0.6875, 0.8124);
+  jitterTable[4] = vec2(0.8125, 0.1875);
+  jitterTable[5] = vec2(0.9375, 0.5625);
+  jitterTable[6] = vec2(0.4375, 0.0625);
+  jitterTable[7] = vec2(0.1875, 0.3125);
+
   vec3 X = dFdx(vPosition);
   vec3 Y = dFdy(vPosition);
-  vec3 offset = 1.* .1 * random3(vPosition.xyz + time);
-  vec3 n = normalize(normalize(cross(X,Y)) + offset);
+  vec3 n = normalize(cross(X,Y));
+  float p = random(vPosition.xy + vec2(time, vPosition.z));
+  int ptr = int(floor(p*8.));
+  n.xz += .1 * jitterTable[ptr];
+  n = normalize(n);
 
   vec3 ld = normalize(lDir);
   float diffuse = max(0., dot(n, ld));
@@ -150,21 +165,13 @@ void main() {
   float shadow = 0.;
 	vec3 shadowCoord = vShadowCoord.xyz / vShadowCoord.w;
   if( diffuse > 0. && shadowCoord.x >= 0. || shadowCoord.x <= 1. || shadowCoord.y >= 0. || shadowCoord.y <= 1. ) {
-    // for(float r= 1.; r<4.; r++) {
-    float step = 1.;
-    float incX = step / shadowResolution.x;
-    float incY = step / shadowResolution.y;
-
-    shadow += sampleVisibility(shadowCoord + vec3(0., -incY, 0.));
-    shadow += sampleVisibility(shadowCoord + vec3(-incX, 0., 0.));
-    shadow += sampleVisibility(shadowCoord + vec3(0., 0., 0.));
-    shadow += sampleVisibility(shadowCoord + vec3(incX, 0., 0.));
-    shadow += sampleVisibility(shadowCoord + vec3(0., incY, 0.));
-    // }
+    for(int i=0; i<8; i++) {
+      shadow += sampleVisibility(shadowCoord + vec3(jitterTable[i] / shadowResolution, 0.));
+    }
+    // shadow += sampleVisibility(shadowCoord);
   }
-  shadow /= 5.;
-  // shadow /= 20.;
-
+  shadow /= 8.;
+  
   vec3 e = normalize(-vPosition.xyz);
   vec3 h = normalize(ld + e);
   float specular = pow(max(dot(n, h), 0.), 150.);
@@ -246,7 +253,7 @@ void main() {
   vec4 posDepth = texture(positionMap, vUv );
   vec3 position = posDepth.xyz;
   vec3 normal = normalize(texture(normalMap, vUv ).xyz);
-  vec2 randVec = normalize( vec2( random( vUv, 1. ), random( vUv.yx, 1. ) ) );
+  vec2 randVec = normalize( vec2( random( vUv, time ), random( vUv.yx, time ) ) );
 
   float depth = posDepth.w;
 
@@ -352,6 +359,7 @@ class SSAO {
       },
       vertexShader: vertexShader,
       fragmentShader: depthFragmentShader,
+      side: BackSide,
       glslVersion: GLSL3,
     });
 
@@ -408,6 +416,8 @@ class SSAO {
       type: FloatType,
     });
 
+    // this.ssaoShader.uniforms.attenuation.value.set(1, 1);
+
     this.accumShader = new RawShaderMaterial({
       uniforms: {
         colorTexture: { value: this.pass.texture },
@@ -438,7 +448,7 @@ class SSAO {
   updateShadow(renderer, scene, camera) {
     camera.updateMatrixWorld();
     camera.updateProjectionMatrix();
-    size.set(this.shadowFBO.width, this.shadowFBO.height);
+    size.set(this.shadowFBO.width, this.shadowFBO.height).multiplyScalar(1 / 5);
     updateProjectionMatrixJitter(camera, size);
     this.shader.uniforms.shadowProjectionMatrix.value.copy(
       camera.projectionMatrix
