@@ -6,12 +6,8 @@ import {
   MeshBasicMaterial,
   InstancedBufferAttribute,
   Vector3,
-  IcosahedronBufferGeometry,
   Scene,
-  Group,
   Mesh,
-  MeshStandardMaterial,
-  MeshNormalMaterial,
   Quaternion,
   Matrix4,
   BufferAttribute,
@@ -25,9 +21,14 @@ import { PLYExporter } from "./third_party/PLYExporter.js";
 import { downloadArrayBuffer, downloadStr } from "./download.js";
 import { getClosestColor } from "./colors.js";
 
+const Box = Symbol("Box");
 const RoundedBox = Symbol("RoundedBox");
 const Hexagon = Symbol("Hexagon");
 const PlasticBrick = Symbol("PlasticBrick");
+
+const NoCrop = Symbol("NoCrop");
+const CircleCrop = Symbol("CircleCrop");
+const HexagonCrop = Symbol("HexagonCrop");
 
 const dummy = new Object3D();
 const c = new Color();
@@ -38,35 +39,76 @@ class HeightMap {
     this.width = width;
     this.height = height;
     this.step = step;
-    this.boxScale = 0.01 * step;
+
     this.points = [];
     this.verticalScale = 80;
 
-    this.mode = PlasticBrick;
-    // this.generateBoxGeometry();
-    // this.generateRoundedBoxGeometry();
-    this.generatePlasticBrickGeometry();
-    this.generateGridPoints();
-    // this.generateHexagonGeometry();
-    // this.generateHexagonGrid();
-    this.initMesh();
-    this.updatePositions();
+    this.invalidated = false;
+    this.mode = Hexagon;
+    this.crop = NoCrop;
+    this.generate();
+  }
+
+  set step(step) {
+    this._step = step;
+    this.boxScale = 0.01 * this._step;
+  }
+
+  get step() {
+    return this._step;
   }
 
   set mode(mode) {
+    this.invalidated = mode !== this.mode;
     this._mode = mode;
-    this.regenerate();
   }
 
-  regenerate() {
-    switch (this._mode) {
-      case RoundedBox:
+  get mode() {
+    return this._mode;
+  }
+
+  set crop(crop) {
+    this.invalidated = crop !== this.crop;
+    this._crop = crop;
+  }
+
+  get crop() {
+    return this._crop;
+  }
+
+  invalidate() {
+    this.invalidated = true;
+  }
+
+  generate() {
+    if (!this.invalidated) return;
+    console.log("GENERATE");
+    switch (this.mode) {
+      case Box:
+        this.generateBoxGeometry();
         break;
-      case Hexagon:
+      case RoundedBox:
+        this.generateRoundedBoxGeometry();
         break;
       case PlasticBrick:
+        this.generatePlasticBrickGeometry();
+        break;
+      case Hexagon:
+        this.generateHexagonGeometry();
         break;
     }
+    switch (this.mode) {
+      case Box:
+      case RoundedBox:
+      case PlasticBrick:
+        this.generateGridPoints();
+        break;
+      case Hexagon:
+        this.generateHexagonGrid();
+        break;
+    }
+    this.initMesh();
+    this.updatePositions();
   }
 
   generateBoxGeometry() {
@@ -85,7 +127,6 @@ class HeightMap {
       this.boxScale / 50,
       1
     );
-    // this.geo = new IcosahedronBufferGeometry(this.boxScale / 2, 5);
   }
 
   generateHexagonGeometry() {
@@ -97,9 +138,14 @@ class HeightMap {
   }
 
   filter(v) {
-    return true;
-    // return this.filterCircle(v);
-    return this.filterHexagon(v);
+    switch (this.crop) {
+      case NoCrop:
+        return true;
+      case CircleCrop:
+        return this.filterCircle(v);
+      case HexagonCrop:
+        return this.filterHexagon(v);
+    }
   }
 
   filterCircle(v) {
@@ -241,12 +287,27 @@ class HeightMap {
   }
 
   processMaps(colorCtx, heightCtx) {
+    if (!this.invalidated) return;
+    this.invalidated = false;
+    console.log("PROCESS");
     const colorData = colorCtx.getImageData(
       0,
       0,
       colorCtx.canvas.width,
       colorCtx.canvas.height
     );
+    // const c = new Color();
+    // const data = colorData.data;
+    // for (let y = 0; y < colorCtx.canvas.height; y++) {
+    //   for (let x = 0; x < colorCtx.canvas.width; x++) {
+    //     const p = (y * colorCtx.canvas.width + x) * 4;
+    //     c.setRGB(data[p] / 255, data[p + 1] / 255, data[p + 2] / 255);
+    //     const c2 = getClosestColor(c);
+    //     data[p] = c2.r * 255;
+    //     data[p + 1] = c2.g * 255;
+    //     data[p + 2] = c2.b * 255;
+    //   }
+    // }
     const heightData = heightCtx.getImageData(
       0,
       0,
@@ -277,12 +338,13 @@ class HeightMap {
       min2 = Math.min(min2, h);
       max2 = Math.max(max2, h);
       h = Math.floor(h / 0.25) * 0.25;
+      h += 0.005 - 0.01 * Math.random();
       h = 1 + h;
 
       const c = this.getColor(colorData.data, Math.floor(p.x), Math.floor(p.y));
 
       heights[i] = h * this.boxScale;
-      this.mesh.setColorAt(i, getClosestColor(c));
+      this.mesh.setColorAt(i, c); //getClosestColor(c));
       i++;
     }
 
@@ -394,4 +456,13 @@ class HeightMap {
   }
 }
 
-export { HeightMap };
+export {
+  HeightMap,
+  Box,
+  RoundedBox,
+  PlasticBrick,
+  Hexagon,
+  NoCrop,
+  CircleCrop,
+  HexagonCrop,
+};
