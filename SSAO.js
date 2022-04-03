@@ -19,7 +19,11 @@ import { shader as orthoVs } from "./shaders/ortho.js";
 import { shader as hsl } from "./shaders/hsl.js";
 import { shader as screen } from "./shaders/screen.js";
 import { getFBO } from "./modules/fbo.js";
-import { updateProjectionMatrixJitter, incPointer } from "./jitter.js";
+import {
+  updateProjectionMatrixJitter,
+  incPointer,
+  resetPointer,
+} from "./jitter.js";
 
 const vertexShader = `precision highp float;
 
@@ -328,6 +332,8 @@ void main() {
 }
 `;
 
+const size = new Vector2();
+
 class SSAO {
   constructor() {
     this.invalidate = true;
@@ -432,7 +438,8 @@ class SSAO {
   updateShadow(renderer, scene, camera) {
     camera.updateMatrixWorld();
     camera.updateProjectionMatrix();
-    updateProjectionMatrixJitter(camera, renderer);
+    size.set(this.shadowFBO.width, this.shadowFBO.height);
+    updateProjectionMatrixJitter(camera, size);
     this.shader.uniforms.shadowProjectionMatrix.value.copy(
       camera.projectionMatrix
     );
@@ -457,6 +464,7 @@ class SSAO {
 
   render(renderer, scene, camera, lightCamera) {
     if (this.invalidate) {
+      resetPointer();
       this.accumPass.shader.uniforms.samples.value = 0;
       renderer.setRenderTarget(this.pass.fbo);
       renderer.clear();
@@ -470,7 +478,9 @@ class SSAO {
 
     this.updateShadow(renderer, scene, lightCamera);
 
-    updateProjectionMatrixJitter(camera, renderer);
+    renderer.getSize(size);
+    size.multiplyScalar(renderer.getPixelRatio());
+    updateProjectionMatrixJitter(camera, size);
 
     this.shader.uniforms.near.value = camera.near;
     this.shader.uniforms.far.value = camera.far;
