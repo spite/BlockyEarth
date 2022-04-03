@@ -117,4 +117,9 @@ function resetPointer() {
   jitterPointer = 0;
 }
 
-export { updateProjectionMatrixJitter, incPointer, resetPointer };
+export {
+  updateProjectionMatrixJitter,
+  incPointer,
+  resetPointer,
+  jitterPointer,
+};
