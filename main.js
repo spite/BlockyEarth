@@ -19,7 +19,16 @@ import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
 import { mod, randomInRange } from "./modules/Maf.js";
 import { SSAO } from "./SSAO.js";
-import { HeightMap } from "./HeightMap.js";
+import {
+  Box,
+  CircleCrop,
+  HeightMap,
+  Hexagon,
+  HexagonCrop,
+  NoCrop,
+  PlasticBrick,
+  RoundedBox,
+} from "./HeightMap.js";
 import { EquirectangularToCubemap } from "./modules/EquirectangularToCubemap.js";
 
 const ssao = new SSAO();
@@ -56,6 +65,7 @@ document.body.append(renderer.domElement);
 const scene = new Scene();
 const camera = new PerspectiveCamera(75, 1, 0.01, 1000);
 camera.position.set(-2, 10, 10);
+camera.position.set(0, 10, 0);
 camera.lookAt(scene.position);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -173,6 +183,7 @@ async function populateMaps(lat, lng, zoom) {
     populateColorMap(lat, lng, zoom),
     populateHeightMap(lat, lng, zoom),
   ]);
+  heightMap.invalidate();
   heightMap.processMaps(colorCtx, heightCtx);
   //ssao.updateShadow(renderer, scene, lightCamera);
   progress.hide();
@@ -238,32 +249,15 @@ function capture() {
   });
 }
 
-function pause() {
-  running = !running;
-  if (running) {
-    const s = 1 + Math.random() * 2;
-    speed.to(s, s * 200, "OutQuint");
-  } else {
-    speed.to(0, speed.value * 200, "OutQuint");
-  }
-}
-
 window.addEventListener("keydown", (e) => {
   const path = e.composedPath();
   if (path && path[0].tagName === "INPUT") {
     return;
   }
-  if (e.code === "Space") {
-    pause();
-  }
+
   if (e.code === "KeyR") {
     randomize();
   }
-});
-
-document.querySelector("#pauseBtn").addEventListener("click", (e) => {
-  pause();
-  e.preventDefault();
 });
 
 document.querySelector("#downloadBtn").addEventListener("click", (e) => {
@@ -277,14 +271,72 @@ document.querySelector("#snapBtn").addEventListener("click", (e) => {
 });
 
 document.querySelector("#boxBtn").addEventListener("click", (e) => {
+  scene.remove(heightMap.mesh);
+  heightMap.mode = Box;
+  heightMap.generate();
+  heightMap.processMaps(colorCtx, heightCtx);
+  scene.add(heightMap.mesh);
+  ssao.reset();
+  e.preventDefault();
+});
+
+document.querySelector("#roundedBoxBtn").addEventListener("click", (e) => {
+  scene.remove(heightMap.mesh);
+  heightMap.mode = RoundedBox;
+  heightMap.generate();
+  heightMap.processMaps(colorCtx, heightCtx);
+  scene.add(heightMap.mesh);
+  ssao.reset();
   e.preventDefault();
 });
 
 document.querySelector("#brickBtn").addEventListener("click", (e) => {
+  scene.remove(heightMap.mesh);
+  heightMap.mode = PlasticBrick;
+  heightMap.generate();
+  heightMap.processMaps(colorCtx, heightCtx);
+  scene.add(heightMap.mesh);
+  ssao.reset();
   e.preventDefault();
 });
 
 document.querySelector("#hexagonBtn").addEventListener("click", (e) => {
+  scene.remove(heightMap.mesh);
+  heightMap.mode = Hexagon;
+  heightMap.generate();
+  heightMap.processMaps(colorCtx, heightCtx);
+  scene.add(heightMap.mesh);
+  ssao.reset();
+  e.preventDefault();
+});
+
+document.querySelector("#cropNoneBtn").addEventListener("click", (e) => {
+  scene.remove(heightMap.mesh);
+  heightMap.crop = NoCrop;
+  heightMap.generate();
+  heightMap.processMaps(colorCtx, heightCtx);
+  scene.add(heightMap.mesh);
+  ssao.reset();
+  e.preventDefault();
+});
+
+document.querySelector("#cropCircleBtn").addEventListener("click", (e) => {
+  scene.remove(heightMap.mesh);
+  heightMap.crop = CircleCrop;
+  heightMap.generate();
+  heightMap.processMaps(colorCtx, heightCtx);
+  scene.add(heightMap.mesh);
+  ssao.reset();
+  e.preventDefault();
+});
+
+document.querySelector("#cropHexagonBtn").addEventListener("click", (e) => {
+  scene.remove(heightMap.mesh);
+  heightMap.crop = HexagonCrop;
+  heightMap.generate();
+  heightMap.processMaps(colorCtx, heightCtx);
+  scene.add(heightMap.mesh);
+  ssao.reset();
   e.preventDefault();
 });
 
