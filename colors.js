@@ -1,6 +1,7 @@
 import { Vector3, Color } from "three";
+import { delta } from "./color.js";
 
-// from http://www.jennyscrayoncollection.com/2021/06/all-current-lego-colors.html#:~:text=The%2067%20current%20LEGO%20colors,violet%2C%20medium%20lavender%2C%20lavender%2C
+// from http://www.jennyscrayoncollection.com/2021/06/all-current-lego-colors.html
 
 const colors = [
   // black
@@ -65,6 +66,12 @@ function init() {
 
 init();
 
+function logColor(c) {
+  return `rgb(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(
+    c.b * 255
+  )})`;
+}
+
 function getClosestColor(c) {
   // const l = luma(c);
   // for (let i = 1; i < table.length; i++) {
@@ -80,23 +87,32 @@ function getClosestColor(c) {
   c.getHSL(hsl);
   const rgb = hexToRgb(c.getHex());
   for (const item of table) {
+    const co = item.rgb;
+    const d = delta([rgb.r, rgb.g, rgb.b], [co.r, co.g, co.b]);
     // const co = item.rgb;
     // const r = rgb.r - co.r; // * 0.299;
     // const g = rgb.g - co.g; // * 0.587;
     // const b = rgb.b - co.b; // * 0.114;
     // const d = Math.sqrt(r ** 2 + g ** 2 + b ** 2);
 
-    const co = item.color;
-    co.getHSL(hsl0);
-    const h = (hsl0.h - hsl.h) * 10;
-    const s = (hsl0.s - hsl.s) * 1;
-    const l = (hsl0.l - hsl.l) * 1;
-    const d = Math.sqrt(h ** 2 + s ** 2 + l ** 2);
+    // const co = item.color;
+    // co.getHSL(hsl0);
+    // const h = (hsl0.h - hsl.h) * 10;
+    // const s = (hsl0.s - hsl.s) * 1;
+    // const l = (hsl0.l - hsl.l) * 1;
+    // const d = Math.sqrt(h ** 2 + s ** 2 + l ** 2);
     if (d < min) {
       min = d;
       sel = item;
     }
   }
+  // console.log(logColor(c), logColor(sel.color), min);
+  // console.log(
+  //   "%caa %c███ %c███",
+  //   "color: red",
+  //   `color: ${logColor(c)})`,
+  //   `color: ${logColor(sel.color)}`
+  // );
   return sel.color;
 }
 
