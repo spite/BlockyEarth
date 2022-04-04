@@ -137,6 +137,7 @@ vec3 random3(vec3 c) {
 	return r-0.5;
 }
 
+
 void main() {
 
   vec2 jitterTable[8];
@@ -152,7 +153,7 @@ void main() {
   vec3 X = dFdx(vPosition);
   vec3 Y = dFdy(vPosition);
   vec3 n = normalize(cross(X,Y));
-  float p = random(vPosition.xy + vec2(time, vPosition.z));
+  float p = random(vMPosition.xy + vec2(time, vMPosition.z));
   int ptr = int(floor(p*8.));
   n.xz += .1 * jitterTable[ptr];
   n = normalize(n);
@@ -309,7 +310,14 @@ void main() {
 
 const depthFragmentShader = `precision highp float;
 
+uniform float near;
+uniform float far;
+
 out vec4 depth;
+
+float linearizeDepth(float z) {
+  return (2.0 * near) / (far + near - z * (far - near));	
+}
 
 vec4 packDepth(const in float depth) {
   const vec4 bit_shift = vec4(256.0*256.0*256.0, 256.0*256.0, 256.0, 1.0);
@@ -359,7 +367,7 @@ class SSAO {
       },
       vertexShader: vertexShader,
       fragmentShader: depthFragmentShader,
-      side: BackSide,
+      // side: BackSide,
       glslVersion: GLSL3,
     });
 
