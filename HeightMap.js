@@ -30,6 +30,11 @@ const NoCrop = Symbol("NoCrop");
 const CircleCrop = Symbol("CircleCrop");
 const HexagonCrop = Symbol("HexagonCrop");
 
+const NormalHeight = Symbol("NormalHeight");
+const BlockHeight = Symbol("BlockHeight");
+const HalfBlockHeight = Symbol("HalfBlockHeight");
+const QuarterBlockHeight = Symbol("QuarterBlockHeight");
+
 const dummy = new Object3D();
 const c = new Color();
 const v = new Vector3();
@@ -46,7 +51,18 @@ class HeightMap {
     this.invalidated = false;
     this.mode = Hexagon;
     this.crop = NoCrop;
+    this.quantHeight = NormalHeight;
+
     this.generate();
+  }
+
+  set quantHeight(h) {
+    this.invalidated = h !== this._quantHeight;
+    this._quantHeight = h;
+  }
+
+  get quantHeight() {
+    return this._quantHeight;
   }
 
   set step(step) {
@@ -337,7 +353,19 @@ class HeightMap {
       h = ((h - min) / (max - min)) * this.verticalScale;
       min2 = Math.min(min2, h);
       max2 = Math.max(max2, h);
-      h = Math.floor(h / 0.25) * 0.25;
+      switch (this._quantHeight) {
+        case NormalHeight:
+          break;
+        case BlockHeight:
+          h = Math.floor(h);
+          break;
+        case HalfBlockHeight:
+          h = Math.floor(h / 0.5) * 0.5;
+          break;
+        case QuarterBlockHeight:
+          h = Math.floor(h / 0.25) * 0.25;
+          break;
+      }
       h += 0.005 - 0.01 * Math.random();
       h = 1 + h;
 
@@ -465,4 +493,8 @@ export {
   NoCrop,
   CircleCrop,
   HexagonCrop,
+  NormalHeight,
+  BlockHeight,
+  HalfBlockHeight,
+  QuarterBlockHeight,
 };
