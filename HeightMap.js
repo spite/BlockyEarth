@@ -56,6 +56,15 @@ class HeightMap {
     this.generate();
   }
 
+  set perfectAlignment(v) {
+    this.invalidated = this.perfectAlignment !== v;
+    this._perfectAlignment = v;
+  }
+
+  get perfectAlignment() {
+    return this._perfectAlignment;
+  }
+
   set quantHeight(h) {
     this.invalidated = h !== this._quantHeight;
     this._quantHeight = h;
@@ -366,7 +375,9 @@ class HeightMap {
           h = Math.floor(h / 0.25) * 0.25;
           break;
       }
-      h += 0.005 - 0.01 * Math.random();
+      if (!this._perfectAlignment) {
+        h += 0.005 - 0.01 * Math.random();
+      }
       h = 1 + h;
 
       const c = this.getColor(colorData.data, Math.floor(p.x), Math.floor(p.y));
