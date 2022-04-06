@@ -20,12 +20,16 @@ import { twixt } from "./deps/twixt.js";
 import { mod, randomInRange } from "./modules/Maf.js";
 import { SSAO } from "./SSAO.js";
 import {
+  BlockHeight,
   Box,
   CircleCrop,
+  HalfBlockHeight,
+  QuarterBlockHeight,
   HeightMap,
   Hexagon,
   HexagonCrop,
   NoCrop,
+  NormalHeight,
   PlasticBrick,
   RoundedBox,
 } from "./HeightMap.js";
@@ -77,7 +81,7 @@ controls.addEventListener("change", () => {
 const width = 1024;
 const height = 1024;
 const heightMap = new HeightMap(width, height, 8);
-heightMap.verticalScale = 10;
+heightMap.verticalScale = 40;
 scene.add(heightMap.mesh);
 
 let currentLocation;
@@ -336,6 +340,41 @@ document.querySelector("#cropHexagonBtn").addEventListener("click", (e) => {
   heightMap.generate();
   heightMap.processMaps(colorCtx, heightCtx);
   scene.add(heightMap.mesh);
+  ssao.reset();
+  e.preventDefault();
+});
+
+document.querySelector("#noQuantBtn").addEventListener("click", (e) => {
+  heightMap.quantHeight = NormalHeight;
+  heightMap.processMaps(colorCtx, heightCtx);
+  ssao.reset();
+  e.preventDefault();
+});
+
+document.querySelector("#blockBtn").addEventListener("click", (e) => {
+  heightMap.quantHeight = BlockHeight;
+  heightMap.processMaps(colorCtx, heightCtx);
+  ssao.reset();
+  e.preventDefault();
+});
+
+document.querySelector("#halfBlockBtn").addEventListener("click", (e) => {
+  heightMap.quantHeight = HalfBlockHeight;
+  heightMap.processMaps(colorCtx, heightCtx);
+  ssao.reset();
+  e.preventDefault();
+});
+
+document.querySelector("#quarterBlockBtn").addEventListener("click", (e) => {
+  heightMap.quantHeight = QuarterBlockHeight;
+  heightMap.processMaps(colorCtx, heightCtx);
+  ssao.reset();
+  e.preventDefault();
+});
+
+document.querySelector("#perfectAlignment").addEventListener("change", (e) => {
+  heightMap.perfectAlignment = e.target.checked;
+  heightMap.processMaps(colorCtx, heightCtx);
   ssao.reset();
   e.preventDefault();
 });
