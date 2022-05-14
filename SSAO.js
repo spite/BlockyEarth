@@ -24,7 +24,6 @@ import {
   incPointer,
   resetPointer,
 } from "./jitter.js";
-import { BackSide } from "./third_party/three.module.js";
 
 const vertexShader = `precision highp float;
 
@@ -245,7 +244,7 @@ vec3 czm_saturation(vec3 rgb, float adjustment)
 
 void main() {
   // fragColor = texture(shadow, vUv);
-  // fragColor = texture(colorMap, vUv);
+  // fragColor = texture(normalMap, vUv);
   // return;
 
   vec2 size = vec2(textureSize(colorMap, 0));
@@ -506,12 +505,13 @@ class SSAO {
     this.ssaoShader.uniforms.time.value = performance.now() / 1000;
 
     renderer.setRenderTarget(this.renderTarget);
-    // renderer.setClearColor(0xffffff, 1);
+    renderer.setClearColor(0xffffff, 1);
     renderer.clear();
     scene.overrideMaterial = this.shader;
     renderer.render(scene, camera);
     scene.overrideMaterial = null;
     renderer.setRenderTarget(null);
+    renderer.setClearColor(0, 0);
     this.pass.render(renderer);
 
     this.accumPass.shader.uniforms.samples.value++;
