@@ -46,7 +46,7 @@ class HeightMap {
     this.step = step;
 
     this.points = [];
-    this.verticalScale = 80;
+    this.scale = 80;
 
     this.invalidated = false;
     this.mode = Hexagon;
@@ -54,6 +54,15 @@ class HeightMap {
     this.quantHeight = NormalHeight;
 
     this.generate();
+  }
+
+  set scale(scale) {
+    this.invalidated = this.scale !== scale;
+    this.verticalScale = scale;
+  }
+
+  get scale() {
+    return this.verticalScale;
   }
 
   set perfectAlignment(v) {
