@@ -81,7 +81,7 @@ controls.addEventListener("change", () => {
 const width = 1024;
 const height = 1024;
 const heightMap = new HeightMap(width, height, 8);
-heightMap.verticalScale = 40;
+heightMap.scale = 40;
 scene.add(heightMap.mesh);
 
 let currentLocation;
@@ -374,6 +374,13 @@ document.querySelector("#quarterBlockBtn").addEventListener("click", (e) => {
 
 document.querySelector("#perfectAlignment").addEventListener("change", (e) => {
   heightMap.perfectAlignment = e.target.checked;
+  heightMap.processMaps(colorCtx, heightCtx);
+  ssao.reset();
+  e.preventDefault();
+});
+
+document.querySelector("#heightScale").addEventListener("change", (e) => {
+  heightMap.scale = parseFloat(e.target.value);
   heightMap.processMaps(colorCtx, heightCtx);
   ssao.reset();
   e.preventDefault();
