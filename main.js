@@ -95,7 +95,7 @@ heightCanvas.width = colorCanvas.width;
 heightCanvas.height = colorCanvas.height;
 const heightCtx = heightCanvas.getContext("2d");
 
-// document.body.append(heightCanvas);
+document.body.append(heightCanvas);
 heightCanvas.style.position = "absolute";
 heightCanvas.style.left = "0";
 heightCanvas.style.top = "0";
@@ -103,12 +103,13 @@ heightCanvas.style.zIndex = "10";
 heightCanvas.style.width = "512px";
 heightCtx.translate(0.5 * heightCanvas.width, 0.5 * heightCanvas.height);
 
-// document.body.append(colorCanvas);
+document.body.append(colorCanvas);
 colorCanvas.style.position = "absolute";
 colorCanvas.style.left = "512px";
 colorCanvas.style.top = "0";
 colorCanvas.style.zIndex = "10";
 colorCanvas.style.width = "512px";
+// colorCanvas.style.border = "1px solid #ff00ff";
 colorCtx.translate(0.5 * colorCanvas.width, 0.5 * colorCanvas.height);
 
 async function populateColorMap(lat, lng, zoom) {
@@ -122,8 +123,15 @@ async function populateColorMap(lat, lng, zoom) {
   const maxW = Math.pow(2, zoom);
   const maxH = Math.pow(2, zoom);
 
-  for (let y = -3; y < +3; y++) {
-    for (let x = -3; x < +3; x++) {
+  const ox = (cx % 1) * 256;
+  const oy = (cy % 1) * 256;
+  const w0 = Math.ceil((-512 - ox) / 256);
+  const w1 = Math.ceil((512 - ox) / 256);
+  const h0 = Math.ceil((-512 - oy) / 256);
+  const h1 = Math.ceil((512 - oy) / 256);
+
+  for (let y = h0; y <= h1; y++) {
+    for (let x = w0; x <= w1; x++) {
       promises.push(
         new Promise(async (resolve, reject) => {
           const c = await fetchTile(mod(bx - x, maxW), mod(by - y, maxH), zoom);
@@ -152,8 +160,15 @@ async function populateHeightMap(lat, lng, zoom) {
   const maxW = Math.pow(2, zoom);
   const maxH = Math.pow(2, zoom);
 
-  for (let y = -2; y < +2; y++) {
-    for (let x = -2; x < +2; x++) {
+  const ox = (cx % 1) * 512;
+  const oy = (cy % 1) * 512;
+  const w0 = Math.ceil((-512 - ox) / 512);
+  const w1 = Math.ceil((512 - ox) / 512);
+  const h0 = Math.ceil((-512 - oy) / 512);
+  const h1 = Math.ceil((512 - oy) / 512);
+
+  for (let y = h0; y <= h1; y++) {
+    for (let x = w0; x <= w1; x++) {
       promises.push(
         new Promise(async (resolve, reject) => {
           const c = await fetchElevationTile(
@@ -181,6 +196,7 @@ const lightCamera = new PerspectiveCamera(65, 1, 5, 30);
 lightCamera.position.set(5, 7.5, -10);
 lightCamera.lookAt(scene.position);
 ssao.shader.uniforms.lightPos.value.copy(lightCamera.position);
+ssao.backgroundColor.set(0xefffe0);
 
 async function populateMaps(lat, lng, zoom) {
   await Promise.all([
