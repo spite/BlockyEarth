@@ -24,6 +24,7 @@ import {
   incPointer,
   resetPointer,
 } from "./jitter.js";
+import { Color } from "./third_party/three.module.js";
 
 const vertexShader = `precision highp float;
 
@@ -206,6 +207,7 @@ uniform float radius;
 uniform vec2 attenuation;
 uniform float time;
 uniform sampler2D shadow;
+uniform vec3 backgroundColor;
 
 in vec2 vUv;
 
@@ -240,6 +242,18 @@ vec3 czm_saturation(vec3 rgb, float adjustment)
     const vec3 W = vec3(0.2125, 0.7154, 0.0721);
     vec3 intensity = vec3(dot(rgb, W));
     return mix(intensity, rgb, adjustment);
+}
+
+float blendSoftLight(float base, float blend) {
+	return (blend<0.5)?(2.0*base*blend+base*base*(1.0-2.0*blend)):(sqrt(base)*(2.0*blend-1.0)+2.0*base*(1.0-blend));
+}
+
+vec3 blendSoftLight(vec3 base, vec3 blend) {
+	return vec3(blendSoftLight(base.r,blend.r),blendSoftLight(base.g,blend.g),blendSoftLight(base.b,blend.b));
+}
+
+vec3 blendSoftLight(vec3 base, vec3 blend, float opacity) {
+	return (blendSoftLight(base, blend) * opacity + base * (1.0 - opacity));
 }
 
 void main() {
@@ -302,6 +316,8 @@ void main() {
   hsl.y = clamp(hsl.y, 0., 1.);
 	vec3 finalColor = czm_saturation(hsv2rgb(hsl), 1.5 + occlusion);
   // vec4 finalColor = color;
+
+  finalColor = blendSoftLight(finalColor, backgroundColor);
 
 	fragColor = vec4(finalColor.rgb, color.a);
   
@@ -372,6 +388,7 @@ class SSAO {
 
     this.shader = new RawShaderMaterial({
       uniforms: {
+        backgroundColor: { value: new Color(0xffffff) },
         lightPos: { value: new Vector3() },
         shadowViewMatrix: { value: new Matrix4() },
         shadowProjectionMatrix: { value: new Matrix4() },
@@ -471,6 +488,10 @@ class SSAO {
     scene.overrideMaterial = null;
   }
 
+  get backgroundColor() {
+    return this.shader.uniforms.backgroundColor.value;
+  }
+
   get output() {
     return this.pass.texture;
   }
@@ -505,7 +526,7 @@ class SSAO {
     this.ssaoShader.uniforms.time.value = performance.now() / 1000;
 
     renderer.setRenderTarget(this.renderTarget);
-    renderer.setClearColor(0xffffff, 1);
+    renderer.setClearColor(this.backgroundColor, 1);
     renderer.clear();
     scene.overrideMaterial = this.shader;
     renderer.render(scene, camera);
