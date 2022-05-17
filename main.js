@@ -80,7 +80,7 @@ controls.addEventListener("change", () => {
 
 const width = 1024;
 const height = 1024;
-const heightMap = new HeightMap(width, height, 8);
+const heightMap = new HeightMap(width, height, 16);
 heightMap.scale = 40;
 scene.add(heightMap.mesh);
 
@@ -95,7 +95,7 @@ heightCanvas.width = colorCanvas.width;
 heightCanvas.height = colorCanvas.height;
 const heightCtx = heightCanvas.getContext("2d");
 
-document.body.append(heightCanvas);
+// document.body.append(heightCanvas);
 heightCanvas.style.position = "absolute";
 heightCanvas.style.left = "0";
 heightCanvas.style.top = "0";
@@ -103,7 +103,7 @@ heightCanvas.style.zIndex = "10";
 heightCanvas.style.width = "512px";
 heightCtx.translate(0.5 * heightCanvas.width, 0.5 * heightCanvas.height);
 
-document.body.append(colorCanvas);
+// document.body.append(colorCanvas);
 colorCanvas.style.position = "absolute";
 colorCanvas.style.left = "512px";
 colorCanvas.style.top = "0";
@@ -197,6 +197,7 @@ lightCamera.position.set(5, 7.5, -10);
 lightCamera.lookAt(scene.position);
 ssao.shader.uniforms.lightPos.value.copy(lightCamera.position);
 ssao.backgroundColor.set(0xefffe0);
+window.ssao = ssao;
 
 async function populateMaps(lat, lng, zoom) {
   await Promise.all([
@@ -390,6 +391,13 @@ document.querySelector("#quarterBlockBtn").addEventListener("click", (e) => {
 
 document.querySelector("#perfectAlignment").addEventListener("change", (e) => {
   heightMap.perfectAlignment = e.target.checked;
+  heightMap.processMaps(colorCtx, heightCtx);
+  ssao.reset();
+  e.preventDefault();
+});
+
+document.querySelector("#brickPalette").addEventListener("change", (e) => {
+  heightMap.brickPalette = e.target.checked;
   heightMap.processMaps(colorCtx, heightCtx);
   ssao.reset();
   e.preventDefault();
