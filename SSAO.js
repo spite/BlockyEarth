@@ -91,6 +91,7 @@ uniform sampler2D shadowMap;
 uniform mat3 normalMatrix;
 uniform vec3 cameraPosition;
 uniform float time;
+uniform vec3 backgroundColor;
 
 in vec3 vPosition;
 in vec3 lDir;
@@ -137,6 +138,17 @@ vec3 random3(vec3 c) {
 	return r-0.5;
 }
 
+float blendSoftLight(float base, float blend) {
+	return (blend<0.5)?(2.0*base*blend+base*base*(1.0-2.0*blend)):(sqrt(base)*(2.0*blend-1.0)+2.0*base*(1.0-blend));
+}
+
+vec3 blendSoftLight(vec3 base, vec3 blend) {
+	return vec3(blendSoftLight(base.r,blend.r),blendSoftLight(base.g,blend.g),blendSoftLight(base.b,blend.b));
+}
+
+vec3 blendSoftLight(vec3 base, vec3 blend, float opacity) {
+	return (blendSoftLight(base, blend) * opacity + base * (1.0 - opacity));
+}
 
 void main() {
 
@@ -176,8 +188,8 @@ void main() {
   vec3 e = normalize(-vPosition.xyz);
   vec3 h = normalize(ld + e);
   float specular = pow(max(dot(n, h), 0.), 150.);
-  
-  vec3 modColor = rgb2hsv(vColor);
+
+  vec3 modColor = rgb2hsv(blendSoftLight(vColor, backgroundColor));
   modColor.z *= .5 + .5 * diffuse * shadow;
   modColor.z += .2 * diffuse;
   modColor.z += .2 * specular * shadow;
@@ -207,7 +219,6 @@ uniform float radius;
 uniform vec2 attenuation;
 uniform float time;
 uniform sampler2D shadow;
-uniform vec3 backgroundColor;
 
 in vec2 vUv;
 
@@ -242,18 +253,6 @@ vec3 czm_saturation(vec3 rgb, float adjustment)
     const vec3 W = vec3(0.2125, 0.7154, 0.0721);
     vec3 intensity = vec3(dot(rgb, W));
     return mix(intensity, rgb, adjustment);
-}
-
-float blendSoftLight(float base, float blend) {
-	return (blend<0.5)?(2.0*base*blend+base*base*(1.0-2.0*blend)):(sqrt(base)*(2.0*blend-1.0)+2.0*base*(1.0-blend));
-}
-
-vec3 blendSoftLight(vec3 base, vec3 blend) {
-	return vec3(blendSoftLight(base.r,blend.r),blendSoftLight(base.g,blend.g),blendSoftLight(base.b,blend.b));
-}
-
-vec3 blendSoftLight(vec3 base, vec3 blend, float opacity) {
-	return (blendSoftLight(base, blend) * opacity + base * (1.0 - opacity));
 }
 
 void main() {
@@ -316,9 +315,7 @@ void main() {
   hsl.y = clamp(hsl.y, 0., 1.);
 	vec3 finalColor = czm_saturation(hsv2rgb(hsl), 1.5 + occlusion);
   // vec4 finalColor = color;
-
-  finalColor = blendSoftLight(finalColor, backgroundColor);
-
+  
 	fragColor = vec4(finalColor.rgb, color.a);
   
 }`;
