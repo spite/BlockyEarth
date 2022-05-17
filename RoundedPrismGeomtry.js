@@ -1,6 +1,6 @@
 import { Vector3, CylinderBufferGeometry } from "./third_party/three.module.js";
 
-function generateRoundedPrismGeometry(width) {
+function generateRoundedPrismGeometry(width, border) {
   const f = Math.sqrt(3);
   const geometry = new CylinderBufferGeometry(
     width / f,
@@ -16,12 +16,12 @@ function generateRoundedPrismGeometry(width) {
     v.set(vertices[i], vertices[i + 1], vertices[i + 2]);
     if (v.y > 0) {
       const a = Math.atan2(v.z, v.x);
-      const r = Math.sqrt(v.x * v.x + v.z * v.z) - 0.1 * width;
+      const r = Math.sqrt(v.x * v.x + v.z * v.z) - border;
       v.x = r * Math.cos(a);
       v.z = r * Math.sin(a);
     }
     if (v.y === 0) {
-      v.y = width / 2 - 0.1 * width;
+      v.y = width / 2 - border;
     }
     vertices[i] = v.x;
     vertices[i + 1] = v.y;
