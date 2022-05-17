@@ -52,6 +52,8 @@ class HeightMap {
     this.mode = Hexagon;
     this.crop = NoCrop;
     this.quantHeight = NormalHeight;
+    this.perfectAlignment = true;
+    this.brickPalette = false;
 
     this.generate();
   }
@@ -63,6 +65,15 @@ class HeightMap {
 
   get scale() {
     return this.verticalScale;
+  }
+
+  set brickPalette(v) {
+    this.invalidated = this.brickPalette !== v;
+    this._brickPalette = v;
+  }
+
+  get brickPalette() {
+    return this._brickPalette;
   }
 
   set perfectAlignment(v) {
@@ -393,7 +404,11 @@ class HeightMap {
       const c = this.getColor(colorData.data, Math.floor(p.x), Math.floor(p.y));
 
       heights[i] = h * this.boxScale;
-      this.mesh.setColorAt(i, c); //getClosestColor(c));
+      if (this.brickPalette) {
+        this.mesh.setColorAt(i, getClosestColor(c));
+      } else {
+        this.mesh.setColorAt(i, c);
+      }
       i++;
     }
 
