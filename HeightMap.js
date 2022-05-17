@@ -175,7 +175,10 @@ class HeightMap {
   }
 
   generateHexagonGeometry() {
-    this.geo = generateRoundedPrismGeometry(this.boxScale);
+    this.geo = generateRoundedPrismGeometry(
+      this.boxScale,
+      0.01 * this.boxScale
+    );
   }
 
   generatePlasticBrickGeometry() {
