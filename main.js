@@ -35,6 +35,7 @@ import {
 } from "./HeightMap.js";
 import { EquirectangularToCubemap } from "./modules/EquirectangularToCubemap.js";
 
+const tiles = [loadTile];
 const ssao = new SSAO();
 window.ssao = ssao;
 const speed = twixt.create("speed", 1);
@@ -81,7 +82,7 @@ controls.addEventListener("change", () => {
 const width = 1024;
 const height = 1024;
 const heightMap = new HeightMap(width, height, 16);
-heightMap.scale = 40;
+heightMap.scale = 0.5;
 scene.add(heightMap.mesh);
 
 let currentLocation;
