@@ -1,0 +1,113 @@
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@500&family=Open+Sans:wght@300;600&display=swap");
+html {
+  font-size: 14px;
+  background-image: url(assets/square_bg.png);
+  background-repeat: repeat;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: "Open Sans", sans-serif;
+}
+body {
+  font-size: 13px;
+  font-family: sans-serif;
+  overflow: hidden;
+}
+h2,
+h1 {
+  font-family: montserrat, sans-serif;
+}
+h1 {
+  margin-bottom: 0.5em;
+  font-size: 1.5rem;
+}
+h2 {
+  margin-bottom: 0.5em;
+  font-size: 1rem;
+}
+a {
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: bold;
+  pointer-events: auto;
+}
+a:hover {
+  opacity: 0.8;
+}
+#map-browser {
+  bottom: 0;
+  right: 0;
+  z-index: 100;
+  position: absolute;
+  padding: 1em;
+  max-width: 600px;
+  width: 100%;
+}
+canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+}
+#progress {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 100;
+}
+#info {
+  position: absolute;
+  left: 0.5em;
+  top: 0.5em;
+  pointer-events: none;
+  z-index: 10;
+  padding: 1.5em;
+  color: white;
+  text-shadow: 1px 1px black;
+  border-radius: 1em;
+}
+#info p {
+  margin-bottom: 1em;
+}
+#tools {
+  pointer-events: auto;
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.5em;
+  margin-bottom: 0.5em;
+}
+#tools div {
+  display: flex;
+  align-items: center;
+}
+#tools div span {
+  margin-right: 0.5em;
+}
+x-button {
+  text-shadow: none;
+}
+#pauseBtn {
+  margin-right: 0.5em;
+}
+#description {
+  margin-top: 1em;
+  white-space: pre-line;
+}
+x-button svg {
+  fill: #3c3c3d;
+}
+x-button:hover svg {
+  fill: white;
+}
+
+#colorTiles {
+  padding: 0.5em;
+  font-weight: bold;
+  border-radius: 3px;
+}
