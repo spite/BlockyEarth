@@ -2,12 +2,21 @@ import "./deps/map.js";
 import "./deps/progress.js";
 import "./deps/snackbar.js";
 import "./deps/tweet-button.js";
-import { loadTile } from "./google-maps.js";
+import { GoogleMaps } from "./google-maps.js";
 import {
   fetchElevationTile,
   latToTile,
   lngToTile,
   fetchTile,
+  EsriWorldImagery,
+  EsriWorldPhysical,
+  EsriWorldTerrain,
+  StamenTerrain,
+  StamenWatercolor,
+  StamenTonerBackground,
+  USGSUSImagery,
+  GeoportailFrance,
+  NASAGIBSViirsEarthAtNight2012,
 } from "./mapbox.js";
 import {
   WebGLRenderer,
@@ -35,7 +44,31 @@ import {
 } from "./HeightMap.js";
 import { EquirectangularToCubemap } from "./modules/EquirectangularToCubemap.js";
 
-const tiles = [loadTile];
+const generators = {
+  "Google Maps Satellite": GoogleMaps,
+  "ArcGIS World Imagery": EsriWorldImagery,
+  "ArcGIS World Terrain": EsriWorldTerrain,
+  "ArcGIS World Physical": EsriWorldPhysical,
+  "Stamen Terrain": StamenTerrain,
+  "Stamen Watercolor": StamenWatercolor,
+  "Stamen Toner background": StamenTonerBackground,
+  "USGS US Imagery": USGSUSImagery,
+  "Geoportail France": GeoportailFrance,
+  "NASA at night 2012": NASAGIBSViirsEarthAtNight2012,
+};
+
+let generator = generators["Google Maps Satellite"];
+const colorTiles = document.querySelector("#colorTiles");
+for (const key of Object.keys(generators)) {
+  const option = document.createElement("option");
+  option.textContent = key;
+  colorTiles.append(option);
+}
+colorTiles.addEventListener("change", async (e) => {
+  generator = generators[e.target.value];
+  await load(map.lat, map.lng, map.zoom);
+});
+
 const ssao = new SSAO();
 window.ssao = ssao;
 const speed = twixt.create("speed", 1);
@@ -81,7 +114,7 @@ controls.addEventListener("change", () => {
 
 const width = 1024;
 const height = 1024;
-const heightMap = new HeightMap(width, height, 16);
+const heightMap = new HeightMap(width, height, 4);
 heightMap.scale = 0.5;
 scene.add(heightMap.mesh);
 
@@ -135,7 +168,12 @@ async function populateColorMap(lat, lng, zoom) {
     for (let x = w0; x <= w1; x++) {
       promises.push(
         new Promise(async (resolve, reject) => {
-          const c = await fetchTile(mod(bx - x, maxW), mod(by - y, maxH), zoom);
+          const c = await fetchTile(
+            mod(bx - x, maxW),
+            mod(by - y, maxH),
+            zoom,
+            generator
+          );
           loadedTiles++;
           progress.progress = (loadedTiles * 100) / totalTiles;
           const dx = -(x + (cx % 1)) * c.naturalWidth;
