@@ -11,6 +11,10 @@ async function loadAPI() {
   });
 }
 
+function GoogleMaps(x, y, z) {
+  return `http://khm1.google.com/kh/v=${currentGoogleMapsVersion}&x=${x}&y=${y}&z=${z}&s=Gali&${Date.now()}`;
+}
+
 async function loadTile(x, y, z) {
   const url = `http://khm1.google.com/kh/v=${currentGoogleMapsVersion}&x=${x}&y=${y}&z=${z}&s=Gali&${Date.now()}`;
   const img = new Image();
@@ -21,4 +25,4 @@ async function loadTile(x, y, z) {
   return img;
 }
 
-export { loadAPI, loadTile };
+export { loadAPI, GoogleMaps };
