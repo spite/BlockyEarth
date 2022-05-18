@@ -23,6 +23,8 @@ class MapBrowser extends LitElement {
 
   constructor() {
     super();
+    this.lat = 0;
+    this.lng = 0;
     this.snackbar = null;
     this.marker = null;
     this.onReady = null;
@@ -92,11 +94,17 @@ class MapBrowser extends LitElement {
     this.map.on("click", (e) => this.onMapClick(e));
   }
 
+  get zoom() {
+    return this.map.getZoom();
+  }
+
   onMapClick(e) {
     this.addMarker(e.latlng.lat, e.latlng.lng);
   }
 
   moveTo(lat, lng) {
+    this.lat = lat;
+    this.lng = lng;
     this.removeMarker();
     this.marker = L.marker([lat, lng]).addTo(this.map);
     this.map.panTo([lat, lng]);
