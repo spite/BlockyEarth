@@ -74,17 +74,46 @@ function convertHeight(img) {
 
 // https://leaflet-extras.github.io/leaflet-providers/preview/
 
-async function fetchTile(x, y, z) {
+function EsriWorldImagery(x, y, z) {
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`; // Esri.WorldImagery
+}
+
+function EsriWorldTerrain(x, y, z) {
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/${z}/${y}/${x}`; // Esri.WorldImagery
+}
+
+function EsriWorldPhysical(x, y, z) {
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/${z}/${y}/${x}`; // Esri.WorldImagery
+}
+
+function StamenTerrain(x, y, z) {
+  return `https://stamen-tiles-b.a.ssl.fastly.net/terrain-background/${z}/${x}/${y}.png`; // Stamen Terrain background
+}
+
+function StamenWatercolor(x, y, z) {
+  return `https://stamen-tiles-b.a.ssl.fastly.net/watercolor/${z}/${x}/${y}.png`; // Stamen Wartercolor background
+}
+
+function StamenTonerBackground(x, y, z) {
+  return `https://stamen-tiles-a.a.ssl.fastly.net/toner-background/${z}/${x}/${y}.png`; // Stamen.TonerBackground
+}
+
+function USGSUSImagery(x, y, z) {
+  return `https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/${z}/${y}/${x}`; // USGS.USImagery
+}
+
+function GeoportailFrance(x, y, z) {
+  return `https://wxs.ign.fr/choisirgeoportail/geoportail/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&TILEMATRIX=${z}&TILEROW=${y}&TILECOL=${x}`;
+}
+
+function NASAGIBSViirsEarthAtNight2012(x, y, z) {
+  return `https://map1.vis.earthdata.nasa.gov/wmts-webmerc/VIIRS_CityLights_2012/default//GoogleMapsCompatible_Level8/${z}/${y}/${x}.jpg`; // NASAGIBS.ViirsEarthAtNight2012
+}
+
+async function fetchTile(x, y, z, generator = EsriWorldImagery) {
   // const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/${z}/${x}/${y}?access_token=${mapBoxKey}`;
 
-  // const url = `https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/${z}/${y}/${x}`; // USGS.USImagery
-  // const url = `https://stamen-tiles-b.a.ssl.fastly.net/terrain-background/${z}/${x}/${y}.png`; // Stamen Terrain background
-  // const url = `https://stamen-tiles-a.a.ssl.fastly.net/watercolor/${z}/${x}/${y}.jpg`; // Stamen watercolor
-  const url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`; // Esri.WorldIamgery
-  // const url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/${z}/${y}/${x}`; // Esri.WorldTerrain
-  // const url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/${z}/${y}/${x}`; // Esri.WorldPhysical
-  // const url = `https://wxs.ign.fr/choisirgeoportail/geoportail/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&TILEMATRIX=${z}&TILEROW=${y}&TILECOL=${x}`;
-  // const url = `https://map1.vis.earthdata.nasa.gov/wmts-webmerc/VIIRS_CityLights_2012/default//GoogleMapsCompatible_Level8/${z}/${y}/${x}.jpg`; // NASAGIBS.ViirsEarthAtNight2012
+  const url = generator(x, y, z);
 
   const img = new Image();
   img.crossOrigin = "anonymous";
@@ -121,4 +150,13 @@ export {
   getNextZenHeight,
   getHeight,
   fetchTile,
+  EsriWorldImagery,
+  EsriWorldTerrain,
+  EsriWorldPhysical,
+  StamenTerrain,
+  StamenWatercolor,
+  StamenTonerBackground,
+  USGSUSImagery,
+  GeoportailFrance,
+  NASAGIBSViirsEarthAtNight2012,
 };
