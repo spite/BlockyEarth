@@ -43,6 +43,7 @@ import {
   RoundedBox,
 } from "./HeightMap.js";
 import { EquirectangularToCubemap } from "./modules/EquirectangularToCubemap.js";
+import "./ui.js";
 
 const generators = {
   "Google Maps Satellite": GoogleMaps,
@@ -330,7 +331,24 @@ document.querySelector("#snapBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-document.querySelector("#boxBtn").addEventListener("click", (e) => {
+const boxBtn = document.querySelector("#boxBtn");
+const roundedBoxBtn = document.querySelector("#roundedBoxBtn");
+const brickBtn = document.querySelector("#brickBtn");
+const hexagonBtn = document.querySelector("#hexagonBtn");
+
+const cropNoneBtn = document.querySelector("#cropNoneBtn");
+const cropCircleBtn = document.querySelector("#cropCircleBtn");
+const cropHexagonBtn = document.querySelector("#cropHexagonBtn");
+
+function resetButtons(buttons) {
+  for (const button of buttons) {
+    button.active = false;
+  }
+}
+
+boxBtn.addEventListener("click", (e) => {
+  resetButtons([boxBtn, roundedBoxBtn, brickBtn, hexagonBtn]);
+  boxBtn.active = true;
   scene.remove(heightMap.mesh);
   heightMap.mode = Box;
   heightMap.generate();
@@ -340,7 +358,9 @@ document.querySelector("#boxBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-document.querySelector("#roundedBoxBtn").addEventListener("click", (e) => {
+roundedBoxBtn.addEventListener("click", (e) => {
+  resetButtons([boxBtn, roundedBoxBtn, brickBtn, hexagonBtn]);
+  roundedBoxBtn.active = true;
   scene.remove(heightMap.mesh);
   heightMap.mode = RoundedBox;
   heightMap.generate();
@@ -350,7 +370,9 @@ document.querySelector("#roundedBoxBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-document.querySelector("#brickBtn").addEventListener("click", (e) => {
+brickBtn.addEventListener("click", (e) => {
+  resetButtons([boxBtn, roundedBoxBtn, brickBtn, hexagonBtn]);
+  brickBtn.active = true;
   scene.remove(heightMap.mesh);
   heightMap.mode = PlasticBrick;
   heightMap.generate();
@@ -360,7 +382,9 @@ document.querySelector("#brickBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-document.querySelector("#hexagonBtn").addEventListener("click", (e) => {
+hexagonBtn.addEventListener("click", (e) => {
+  resetButtons([boxBtn, roundedBoxBtn, brickBtn, hexagonBtn]);
+  hexagonBtn.active = true;
   scene.remove(heightMap.mesh);
   heightMap.mode = Hexagon;
   heightMap.generate();
@@ -370,7 +394,9 @@ document.querySelector("#hexagonBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-document.querySelector("#cropNoneBtn").addEventListener("click", (e) => {
+cropNoneBtn.addEventListener("click", (e) => {
+  resetButtons([cropNoneBtn, cropCircleBtn, cropHexagonBtn]);
+  cropNoneBtn.active = true;
   scene.remove(heightMap.mesh);
   heightMap.crop = NoCrop;
   heightMap.generate();
@@ -380,7 +406,9 @@ document.querySelector("#cropNoneBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-document.querySelector("#cropCircleBtn").addEventListener("click", (e) => {
+cropCircleBtn.addEventListener("click", (e) => {
+  resetButtons([cropNoneBtn, cropCircleBtn, cropHexagonBtn]);
+  cropCircleBtn.active = true;
   scene.remove(heightMap.mesh);
   heightMap.crop = CircleCrop;
   heightMap.generate();
@@ -390,7 +418,9 @@ document.querySelector("#cropCircleBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-document.querySelector("#cropHexagonBtn").addEventListener("click", (e) => {
+cropHexagonBtn.addEventListener("click", (e) => {
+  resetButtons([cropNoneBtn, cropCircleBtn, cropHexagonBtn]);
+  cropHexagonBtn.active = true;
   scene.remove(heightMap.mesh);
   heightMap.crop = HexagonCrop;
   heightMap.generate();
