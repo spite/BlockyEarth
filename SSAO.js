@@ -18,6 +18,7 @@ import {
 import { shader as orthoVs } from "./shaders/ortho.js";
 import { shader as hsl } from "./shaders/hsl.js";
 import { shader as screen } from "./shaders/screen.js";
+import { shader as softLight } from "./shaders/soft-light.js";
 import { getFBO } from "./modules/fbo.js";
 import {
   updateProjectionMatrixJitter,
@@ -138,17 +139,7 @@ vec3 random3(vec3 c) {
 	return r-0.5;
 }
 
-float blendSoftLight(float base, float blend) {
-	return (blend<0.5)?(2.0*base*blend+base*base*(1.0-2.0*blend)):(sqrt(base)*(2.0*blend-1.0)+2.0*base*(1.0-blend));
-}
-
-vec3 blendSoftLight(vec3 base, vec3 blend) {
-	return vec3(blendSoftLight(base.r,blend.r),blendSoftLight(base.g,blend.g),blendSoftLight(base.b,blend.b));
-}
-
-vec3 blendSoftLight(vec3 base, vec3 blend, float opacity) {
-	return (blendSoftLight(base, blend) * opacity + base * (1.0 - opacity));
-}
+${softLight}
 
 void main() {
 
@@ -189,7 +180,7 @@ void main() {
   vec3 h = normalize(ld + e);
   float specular = pow(max(dot(n, h), 0.), 150.);
 
-  vec3 modColor = rgb2hsv(blendSoftLight(vColor, backgroundColor));
+  vec3 modColor = rgb2hsv(softLight(vColor, backgroundColor));
   modColor.z *= .5 + .5 * diffuse * shadow;
   modColor.z += .2 * diffuse;
   modColor.z += .2 * specular * shadow;
@@ -246,6 +237,8 @@ float random(vec2 n, float offset ){
 ${hsl}
 
 ${screen}
+
+${softLight}
 
 vec3 czm_saturation(vec3 rgb, float adjustment)
 {
@@ -308,6 +301,7 @@ void main() {
 
   vec4 color = texture(colorMap, vUv);
   color.rgb = screen(color.rgb, acCol.rgb, .1);
+  // color.rgb = softLight(color.rgb, acCol.rgb * occlusion, 1.);
 	vec3 hsl = rgb2hsv(color.rgb);
 	hsl.z *=  (1.-occlusion);
 	hsl.y *= .5 + .5 * (1.-occlusion);
