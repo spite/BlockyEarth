@@ -1,21 +1,43 @@
 import { LitElement, html } from "https://unpkg.com/lit?module";
+import {
+  BlockHeight,
+  Box,
+  CircleCrop,
+  HalfBlockHeight,
+  QuarterBlockHeight,
+  HeightMap,
+  Hexagon,
+  HexagonCrop,
+  NoCrop,
+  NormalHeight,
+  PlasticBrick,
+  RoundedBox,
+} from "./HeightMap.js";
 
 class BlockyEarthUI extends LitElement {
   static get properties() {
     return {
-      // progress: { type: Number },
+      mode: Symbol,
     };
   }
 
   constructor() {
     super();
+    this._generator = null;
   }
 
-  setShape() {
-    debugger;
+  set generator(g) {
+    this._generator = g;
+    this.mode = this._generator.mode;
+  }
+
+  setMode(mode) {
+    this._generator.mode = mode;
+    this.mode = mode;
   }
 
   render() {
+    if (!this._generator) return;
     return html`
       <style>
         * {
@@ -42,10 +64,30 @@ class BlockyEarthUI extends LitElement {
       <div id="tools">
         <div>
           <span>Shape</span>
-          <x-button id="boxBtn" @click=${this.setShape} left>Box</x-button>
-          <x-button id="roundedBoxBtn" middle>Rounded Box</x-button>
-          <x-button id="brickBtn" middle>Brick</x-button>
-          <x-button id="hexagonBtn" right active>Hexagon</x-button>
+          <x-button
+            @click=${() => this.setMode(Box)}
+            ?active=${this.mode === Box}
+            left
+            >Box</x-button
+          >
+          <x-button
+            @click=${() => this.setMode(RoundedBox)}
+            ?active=${this.mode === RoundedBox}
+            middle
+            >Rounded Box</x-button
+          >
+          <x-button
+            @click=${() => this.setMode(PlasticBrick)}
+            ?active=${this.mode === PlasticBrick}
+            middle
+            >Brick</x-button
+          >
+          <x-button
+            @click=${() => this.setMode(Hexagon)}
+            ?active=${this.mode === Hexagon}
+            right
+            >Hexagon</x-button
+          >
         </div>
         <div>
           <span>Crop</span>
