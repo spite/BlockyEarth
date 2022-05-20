@@ -119,6 +119,8 @@ const heightMap = new HeightMap(width, height, 4);
 heightMap.scale = 0.5;
 scene.add(heightMap.mesh);
 
+document.querySelector("#ui").generator = heightMap;
+
 let currentLocation;
 
 const colorCanvas = document.createElement("canvas");
