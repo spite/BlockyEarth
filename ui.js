@@ -18,6 +18,7 @@ class BlockyEarthUI extends LitElement {
   static get properties() {
     return {
       mode: Symbol,
+      crop: Symbol,
     };
   }
 
@@ -29,11 +30,17 @@ class BlockyEarthUI extends LitElement {
   set generator(g) {
     this._generator = g;
     this.mode = this._generator.mode;
+    this.crop = this._generator.crop;
   }
 
   setMode(mode) {
     this._generator.mode = mode;
     this.mode = mode;
+  }
+
+  setCrop(crop) {
+    this._generator.crop = crop;
+    this.crop = crop;
   }
 
   render() {
@@ -91,9 +98,24 @@ class BlockyEarthUI extends LitElement {
         </div>
         <div>
           <span>Crop</span>
-          <x-button id="cropNoneBtn" left active>None</x-button>
-          <x-button id="cropCircleBtn" middle>Circle</x-button>
-          <x-button id="cropHexagonBtn" right>Hexagon</x-button>
+          <x-button
+            @click=${() => this.setCrop(NoCrop)}
+            ?active=${this.crop === NoCrop}
+            left
+            >None</x-button
+          >
+          <x-button
+            @click=${() => this.setCrop(CircleCrop)}
+            ?active=${this.crop === CircleCrop}
+            middle
+            >Circle</x-button
+          >
+          <x-button
+            @click=${() => this.setCrop(HexagonCrop)}
+            ?active=${this.crop === HexagonCrop}
+            right
+            >Hexagon</x-button
+          >
         </div>
         <div>
           <span>Height</span>
