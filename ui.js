@@ -19,6 +19,7 @@ class BlockyEarthUI extends LitElement {
     return {
       mode: Symbol,
       crop: Symbol,
+      height: Symbol,
     };
   }
 
@@ -31,6 +32,7 @@ class BlockyEarthUI extends LitElement {
     this._generator = g;
     this.mode = this._generator.mode;
     this.crop = this._generator.crop;
+    this.height = this._generator.quantHeight;
   }
 
   setMode(mode) {
@@ -41,6 +43,11 @@ class BlockyEarthUI extends LitElement {
   setCrop(crop) {
     this._generator.crop = crop;
     this.crop = crop;
+  }
+
+  setHeight(height) {
+    this._generator.quantHeight = height;
+    this.height = height;
   }
 
   render() {
@@ -119,10 +126,30 @@ class BlockyEarthUI extends LitElement {
         </div>
         <div>
           <span>Height</span>
-          <x-button id="noQuantBtn" left>Natural</x-button>
-          <x-button id="blockBtn" middle>Block</x-button>
-          <x-button id="halfBlockBtn" middle>Half-block</x-button>
-          <x-button id="quarterBlockBtn" right>Quarter-block</x-button>
+          <x-button
+            @click=${() => this.setHeight(NormalHeight)}
+            ?active=${this.height === NormalHeight}
+            left
+            >Natural</x-button
+          >
+          <x-button
+            @click=${() => this.setHeight(BlockHeight)}
+            ?active=${this.height === BlockHeight}
+            middle
+            >Block</x-button
+          >
+          <x-button
+            @click=${() => this.setHeight(HalfBlockHeight)}
+            ?active=${this.height === HalfBlockHeight}
+            middle
+            >Half-block</x-button
+          >
+          <x-button
+            @click=${() => this.setHeight(QuarterBlockHeight)}
+            ?active=${this.height === QuarterBlockHeight}
+            right
+            >Quarter-block</x-button
+          >
         </div>
         <div>
           <input type="checkbox" id="perfectAlignment" />
