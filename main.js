@@ -119,7 +119,16 @@ const heightMap = new HeightMap(width, height, 4);
 heightMap.scale = 0.5;
 scene.add(heightMap.mesh);
 
-document.querySelector("#ui").generator = heightMap;
+const ui = document.querySelector("#ui");
+ui.generator = heightMap;
+
+ui.updateMesh = () => {
+  scene.remove(heightMap.mesh);
+  heightMap.generate();
+  heightMap.processMaps(colorCtx, heightCtx);
+  scene.add(heightMap.mesh);
+  ssao.reset();
+};
 
 let currentLocation;
 
@@ -348,117 +357,33 @@ function resetButtons(buttons) {
   }
 }
 
-boxBtn.addEventListener("click", (e) => {
-  resetButtons([boxBtn, roundedBoxBtn, brickBtn, hexagonBtn]);
-  boxBtn.active = true;
-  scene.remove(heightMap.mesh);
-  heightMap.mode = Box;
-  heightMap.generate();
-  heightMap.processMaps(colorCtx, heightCtx);
-  scene.add(heightMap.mesh);
-  ssao.reset();
-  e.preventDefault();
-});
+// document.querySelector("#noQuantBtn").addEventListener("click", (e) => {
+//   heightMap.quantHeight = NormalHeight;
+//   heightMap.processMaps(colorCtx, heightCtx);
+//   ssao.reset();
+//   e.preventDefault();
+// });
 
-roundedBoxBtn.addEventListener("click", (e) => {
-  resetButtons([boxBtn, roundedBoxBtn, brickBtn, hexagonBtn]);
-  roundedBoxBtn.active = true;
-  scene.remove(heightMap.mesh);
-  heightMap.mode = RoundedBox;
-  heightMap.generate();
-  heightMap.processMaps(colorCtx, heightCtx);
-  scene.add(heightMap.mesh);
-  ssao.reset();
-  e.preventDefault();
-});
+// document.querySelector("#blockBtn").addEventListener("click", (e) => {
+//   heightMap.quantHeight = BlockHeight;
+//   heightMap.processMaps(colorCtx, heightCtx);
+//   ssao.reset();
+//   e.preventDefault();
+// });
 
-brickBtn.addEventListener("click", (e) => {
-  resetButtons([boxBtn, roundedBoxBtn, brickBtn, hexagonBtn]);
-  brickBtn.active = true;
-  scene.remove(heightMap.mesh);
-  heightMap.mode = PlasticBrick;
-  heightMap.generate();
-  heightMap.processMaps(colorCtx, heightCtx);
-  scene.add(heightMap.mesh);
-  ssao.reset();
-  e.preventDefault();
-});
+// document.querySelector("#halfBlockBtn").addEventListener("click", (e) => {
+//   heightMap.quantHeight = HalfBlockHeight;
+//   heightMap.processMaps(colorCtx, heightCtx);
+//   ssao.reset();
+//   e.preventDefault();
+// });
 
-hexagonBtn.addEventListener("click", (e) => {
-  resetButtons([boxBtn, roundedBoxBtn, brickBtn, hexagonBtn]);
-  hexagonBtn.active = true;
-  scene.remove(heightMap.mesh);
-  heightMap.mode = Hexagon;
-  heightMap.generate();
-  heightMap.processMaps(colorCtx, heightCtx);
-  scene.add(heightMap.mesh);
-  ssao.reset();
-  e.preventDefault();
-});
-
-cropNoneBtn.addEventListener("click", (e) => {
-  resetButtons([cropNoneBtn, cropCircleBtn, cropHexagonBtn]);
-  cropNoneBtn.active = true;
-  scene.remove(heightMap.mesh);
-  heightMap.crop = NoCrop;
-  heightMap.generate();
-  heightMap.processMaps(colorCtx, heightCtx);
-  scene.add(heightMap.mesh);
-  ssao.reset();
-  e.preventDefault();
-});
-
-cropCircleBtn.addEventListener("click", (e) => {
-  resetButtons([cropNoneBtn, cropCircleBtn, cropHexagonBtn]);
-  cropCircleBtn.active = true;
-  scene.remove(heightMap.mesh);
-  heightMap.crop = CircleCrop;
-  heightMap.generate();
-  heightMap.processMaps(colorCtx, heightCtx);
-  scene.add(heightMap.mesh);
-  ssao.reset();
-  e.preventDefault();
-});
-
-cropHexagonBtn.addEventListener("click", (e) => {
-  resetButtons([cropNoneBtn, cropCircleBtn, cropHexagonBtn]);
-  cropHexagonBtn.active = true;
-  scene.remove(heightMap.mesh);
-  heightMap.crop = HexagonCrop;
-  heightMap.generate();
-  heightMap.processMaps(colorCtx, heightCtx);
-  scene.add(heightMap.mesh);
-  ssao.reset();
-  e.preventDefault();
-});
-
-document.querySelector("#noQuantBtn").addEventListener("click", (e) => {
-  heightMap.quantHeight = NormalHeight;
-  heightMap.processMaps(colorCtx, heightCtx);
-  ssao.reset();
-  e.preventDefault();
-});
-
-document.querySelector("#blockBtn").addEventListener("click", (e) => {
-  heightMap.quantHeight = BlockHeight;
-  heightMap.processMaps(colorCtx, heightCtx);
-  ssao.reset();
-  e.preventDefault();
-});
-
-document.querySelector("#halfBlockBtn").addEventListener("click", (e) => {
-  heightMap.quantHeight = HalfBlockHeight;
-  heightMap.processMaps(colorCtx, heightCtx);
-  ssao.reset();
-  e.preventDefault();
-});
-
-document.querySelector("#quarterBlockBtn").addEventListener("click", (e) => {
-  heightMap.quantHeight = QuarterBlockHeight;
-  heightMap.processMaps(colorCtx, heightCtx);
-  ssao.reset();
-  e.preventDefault();
-});
+// document.querySelector("#quarterBlockBtn").addEventListener("click", (e) => {
+//   heightMap.quantHeight = QuarterBlockHeight;
+//   heightMap.processMaps(colorCtx, heightCtx);
+//   ssao.reset();
+//   e.preventDefault();
+// });
 
 document.querySelector("#perfectAlignment").addEventListener("change", (e) => {
   heightMap.perfectAlignment = e.target.checked;
