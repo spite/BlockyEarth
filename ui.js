@@ -38,17 +38,22 @@ class BlockyEarthUI extends LitElement {
   setMode(mode) {
     this._generator.mode = mode;
     this.mode = mode;
+    this.updateMesh();
   }
 
   setCrop(crop) {
     this._generator.crop = crop;
     this.crop = crop;
+    this.updateMesh();
   }
 
   setHeight(height) {
     this._generator.quantHeight = height;
     this.height = height;
+    this.updateMesh();
   }
+
+  updateMesh() {}
 
   render() {
     if (!this._generator) return;
