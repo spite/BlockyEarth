@@ -26,24 +26,11 @@ import {
 } from "./third_party/three.module.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
-import { mod, randomInRange } from "./modules/Maf.js";
 import { SSAO } from "./SSAO.js";
-import {
-  BlockHeight,
-  Box,
-  CircleCrop,
-  HalfBlockHeight,
-  QuarterBlockHeight,
-  HeightMap,
-  Hexagon,
-  HexagonCrop,
-  NoCrop,
-  NormalHeight,
-  PlasticBrick,
-  RoundedBox,
-} from "./HeightMap.js";
+import { HeightMap } from "./HeightMap.js";
 import { EquirectangularToCubemap } from "./modules/EquirectangularToCubemap.js";
 import "./ui.js";
+import { debounce } from "./deps/debounce.js";
 
 const generators = {
   "Google Maps Satellite": GoogleMaps,
@@ -115,131 +102,23 @@ controls.addEventListener("change", () => {
 
 const width = 1024;
 const height = 1024;
-const heightMap = new HeightMap(width, height, 4);
+const heightMap = new HeightMap(width, height, 8);
 heightMap.scale = 0.5;
+heightMap.generator = generator;
 scene.add(heightMap.mesh);
 
 const ui = document.querySelector("#ui");
 ui.generator = heightMap;
 
-ui.updateMesh = () => {
+ui.updateMesh = debounce(() => {
   scene.remove(heightMap.mesh);
   heightMap.generate();
-  heightMap.processMaps(colorCtx, heightCtx);
+  heightMap.processMaps();
   scene.add(heightMap.mesh);
   ssao.reset();
-};
+}, 100);
 
 let currentLocation;
-
-const colorCanvas = document.createElement("canvas");
-colorCanvas.width = width;
-colorCanvas.height = height;
-const colorCtx = colorCanvas.getContext("2d");
-const heightCanvas = document.createElement("canvas");
-heightCanvas.width = colorCanvas.width;
-heightCanvas.height = colorCanvas.height;
-const heightCtx = heightCanvas.getContext("2d");
-
-// document.body.append(heightCanvas);
-heightCanvas.style.position = "absolute";
-heightCanvas.style.left = "0";
-heightCanvas.style.top = "0";
-heightCanvas.style.zIndex = "10";
-heightCanvas.style.width = "512px";
-heightCtx.translate(0.5 * heightCanvas.width, 0.5 * heightCanvas.height);
-
-// document.body.append(colorCanvas);
-colorCanvas.style.position = "absolute";
-colorCanvas.style.left = "512px";
-colorCanvas.style.top = "0";
-colorCanvas.style.zIndex = "10";
-colorCanvas.style.width = "512px";
-// colorCanvas.style.border = "1px solid #ff00ff";
-colorCtx.translate(0.5 * colorCanvas.width, 0.5 * colorCanvas.height);
-
-async function populateColorMap(lat, lng, zoom) {
-  const cx = lngToTile(lng, zoom);
-  const cy = latToTile(lat, zoom);
-  const bx = Math.floor(cx);
-  const by = Math.floor(cy);
-
-  const promises = [];
-
-  const maxW = Math.pow(2, zoom);
-  const maxH = Math.pow(2, zoom);
-
-  const ox = (cx % 1) * 256;
-  const oy = (cy % 1) * 256;
-  const w0 = Math.ceil((-512 - ox) / 256);
-  const w1 = Math.ceil((512 - ox) / 256);
-  const h0 = Math.ceil((-512 - oy) / 256);
-  const h1 = Math.ceil((512 - oy) / 256);
-
-  for (let y = h0; y <= h1; y++) {
-    for (let x = w0; x <= w1; x++) {
-      promises.push(
-        new Promise(async (resolve, reject) => {
-          const c = await fetchTile(
-            mod(bx - x, maxW),
-            mod(by - y, maxH),
-            zoom,
-            generator
-          );
-          loadedTiles++;
-          progress.progress = (loadedTiles * 100) / totalTiles;
-          const dx = -(x + (cx % 1)) * c.naturalWidth;
-          const dy = -(y + (cy % 1)) * c.naturalHeight;
-          colorCtx.drawImage(c, dx, dy);
-          resolve();
-        })
-      );
-    }
-  }
-
-  return Promise.all(promises);
-}
-
-async function populateHeightMap(lat, lng, zoom) {
-  zoom = zoom - 1;
-  const cx = lngToTile(lng, zoom);
-  const cy = latToTile(lat, zoom);
-  const bx = Math.floor(cx);
-  const by = Math.floor(cy);
-
-  const promises = [];
-  const maxW = Math.pow(2, zoom);
-  const maxH = Math.pow(2, zoom);
-
-  const ox = (cx % 1) * 512;
-  const oy = (cy % 1) * 512;
-  const w0 = Math.ceil((-512 - ox) / 512);
-  const w1 = Math.ceil((512 - ox) / 512);
-  const h0 = Math.ceil((-512 - oy) / 512);
-  const h1 = Math.ceil((512 - oy) / 512);
-
-  for (let y = h0; y <= h1; y++) {
-    for (let x = w0; x <= w1; x++) {
-      promises.push(
-        new Promise(async (resolve, reject) => {
-          const c = await fetchElevationTile(
-            mod(bx - x, maxW),
-            mod(by - y, maxH),
-            zoom
-          );
-          loadedTiles++;
-          progress.progress = (loadedTiles * 100) / totalTiles;
-          const dx = -(x + (cx % 1)) * c.naturalWidth;
-          const dy = -(y + (cy % 1)) * c.naturalHeight;
-          heightCtx.drawImage(c, dx, dy);
-          resolve();
-        })
-      );
-    }
-  }
-
-  return Promise.all(promises);
-}
 
 const s = 7;
 //const lightCamera = new OrthographicCamera(-s, s, s, -s, 5, 30);
@@ -250,19 +129,6 @@ ssao.shader.uniforms.lightPos.value.copy(lightCamera.position);
 ssao.backgroundColor.set(0xefffe0);
 window.ssao = ssao;
 
-async function populateMaps(lat, lng, zoom) {
-  await Promise.all([
-    populateColorMap(lat, lng, zoom),
-    populateHeightMap(lat, lng, zoom),
-  ]);
-  heightMap.invalidate();
-  heightMap.processMaps(colorCtx, heightCtx);
-  //ssao.updateShadow(renderer, scene, lightCamera);
-  progress.hide();
-  ssao.reset();
-  console.log("done");
-}
-
 let loadedTiles = 0;
 let totalTiles = 0;
 
@@ -272,7 +138,8 @@ async function load(lat, lng, zoom) {
   totalTiles = 6 * 6 + 4 * 4;
   progress.progress = 0;
   progress.show();
-  populateMaps(lat, lng, zoom + 1);
+  await heightMap.populateMaps(lat, lng, zoom + 1);
+  ssao.reset();
 }
 
 window.addEventListener("map-selection", async (e) => {
@@ -342,21 +209,6 @@ document.querySelector("#snapBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-const boxBtn = document.querySelector("#boxBtn");
-const roundedBoxBtn = document.querySelector("#roundedBoxBtn");
-const brickBtn = document.querySelector("#brickBtn");
-const hexagonBtn = document.querySelector("#hexagonBtn");
-
-const cropNoneBtn = document.querySelector("#cropNoneBtn");
-const cropCircleBtn = document.querySelector("#cropCircleBtn");
-const cropHexagonBtn = document.querySelector("#cropHexagonBtn");
-
-function resetButtons(buttons) {
-  for (const button of buttons) {
-    button.active = false;
-  }
-}
-
 // document.querySelector("#noQuantBtn").addEventListener("click", (e) => {
 //   heightMap.quantHeight = NormalHeight;
 //   heightMap.processMaps(colorCtx, heightCtx);
@@ -385,23 +237,27 @@ function resetButtons(buttons) {
 //   e.preventDefault();
 // });
 
-document.querySelector("#perfectAlignment").addEventListener("change", (e) => {
-  heightMap.perfectAlignment = e.target.checked;
-  heightMap.processMaps(colorCtx, heightCtx);
-  ssao.reset();
-  e.preventDefault();
-});
+document
+  .querySelector("#perfectAlignment")
+  .addEventListener("change", async (e) => {
+    heightMap.perfectAlignment = e.target.checked;
+    await heightMap.processMaps();
+    ssao.reset();
+    e.preventDefault();
+  });
 
-document.querySelector("#brickPalette").addEventListener("change", (e) => {
-  heightMap.brickPalette = e.target.checked;
-  heightMap.processMaps(colorCtx, heightCtx);
-  ssao.reset();
-  e.preventDefault();
-});
+document
+  .querySelector("#brickPalette")
+  .addEventListener("change", async (e) => {
+    heightMap.brickPalette = e.target.checked;
+    await heightMap.processMaps();
+    ssao.reset();
+    e.preventDefault();
+  });
 
-document.querySelector("#heightScale").addEventListener("change", (e) => {
+document.querySelector("#heightScale").addEventListener("change", async (e) => {
   heightMap.scale = parseFloat(e.target.value);
-  heightMap.processMaps(colorCtx, heightCtx);
+  await heightMap.processMaps();
   ssao.reset();
   e.preventDefault();
 });
