@@ -13,6 +13,43 @@ import {
   PlasticBrick,
   RoundedBox,
 } from "./HeightMap.js";
+import { GoogleMaps } from "./google-maps.js";
+import {
+  EsriWorldImagery,
+  EsriWorldPhysical,
+  EsriWorldTerrain,
+  StamenTerrain,
+  StamenWatercolor,
+  StamenTonerBackground,
+  USGSUSImagery,
+  GeoportailFrance,
+  NASAGIBSViirsEarthAtNight2012,
+} from "./mapbox.js";
+
+const generators = {
+  "Google Maps Satellite": GoogleMaps,
+  "ArcGIS World Imagery": EsriWorldImagery,
+  "ArcGIS World Terrain": EsriWorldTerrain,
+  "ArcGIS World Physical": EsriWorldPhysical,
+  "Stamen Terrain": StamenTerrain,
+  "Stamen Watercolor": StamenWatercolor,
+  "Stamen Toner background": StamenTonerBackground,
+  "USGS US Imagery": USGSUSImagery,
+  "Geoportail France": GeoportailFrance,
+  "NASA at night 2012": NASAGIBSViirsEarthAtNight2012,
+};
+
+// let generator = generators["Google Maps Satellite"];
+// const colorTiles = document.querySelector("#colorTiles");
+// for (const key of Object.keys(generators)) {
+//   const option = document.createElement("option");
+//   option.textContent = key;
+//   colorTiles.append(option);
+// }
+// colorTiles.addEventListener("change", async (e) => {
+//   generator = generators[e.target.value];
+//   await load(map.lat, map.lng, map.zoom);
+// });
 
 class BlockyEarthUI extends LitElement {
   static get properties() {
@@ -30,6 +67,7 @@ class BlockyEarthUI extends LitElement {
 
   set generator(g) {
     this._generator = g;
+    this._generator.generator = generators["Google Maps Satellite"];
     this.mode = this._generator.mode;
     this.crop = this._generator.crop;
     this.height = this._generator.quantHeight;
@@ -51,6 +89,11 @@ class BlockyEarthUI extends LitElement {
     this._generator.quantHeight = height;
     this.height = height;
     this.updateMesh();
+  }
+
+  onTileChange(e) {
+    this._generator.generator = generators[e.target.value];
+    //   await load(map.lat, map.lng, map.zoom);
   }
 
   updateMesh() {}
@@ -162,7 +205,11 @@ class BlockyEarthUI extends LitElement {
           <input type="checkbox" id="brickPalette" />
           <label for="brickPalette">Palette</label>
           <input type="range" id="heightScale" min="0" max="10" step=".1" />
-          <select id="colorTiles"></select>
+          <select @change="${this.onTileChange}">
+            ${Object.keys(generators).map(
+              (name) => html`<option>${name}</option>`
+            )}
+          </select>
         </div>
         <div>
           <x-button id="downloadBtn" icon left
