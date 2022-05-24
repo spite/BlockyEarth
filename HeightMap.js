@@ -20,6 +20,13 @@ import { GLTFExporter } from "./third_party/GLTFExporter.js";
 import { PLYExporter } from "./third_party/PLYExporter.js";
 import { downloadArrayBuffer, downloadStr } from "./download.js";
 import { getClosestColor } from "./colors.js";
+import {
+  fetchElevationTile,
+  latToTile,
+  lngToTile,
+  fetchTile,
+} from "./mapbox.js";
+import { mod, randomInRange } from "./modules/Maf.js";
 
 const Box = Symbol("Box");
 const RoundedBox = Symbol("RoundedBox");
@@ -41,8 +48,7 @@ const v = new Vector3();
 
 class HeightMap {
   constructor(width = 1024, height = 1024, step = 2) {
-    this.width = width;
-    this.height = height;
+    this.setSize(width, height);
     this.step = step;
 
     this.points = [];
@@ -56,6 +62,12 @@ class HeightMap {
     this.brickPalette = false;
 
     this.generate();
+  }
+
+  setSize(width, height) {
+    this.width = width;
+    this.height = height;
+    this.initCanvases();
   }
 
   set scale(scale) {
@@ -334,9 +346,142 @@ class HeightMap {
     return new Color(r / total, g / total, b / total);
   }
 
-  processMaps(colorCtx, heightCtx) {
+  initCanvases() {
+    const colorCanvas = document.createElement("canvas");
+    colorCanvas.width = this.width;
+    colorCanvas.height = this.height;
+    const colorCtx = colorCanvas.getContext("2d");
+    const heightCanvas = document.createElement("canvas");
+    heightCanvas.width = colorCanvas.width;
+    heightCanvas.height = colorCanvas.height;
+    const heightCtx = heightCanvas.getContext("2d");
+
+    // document.body.append(heightCanvas);
+    heightCanvas.style.position = "absolute";
+    heightCanvas.style.left = "0";
+    heightCanvas.style.top = "0";
+    heightCanvas.style.zIndex = "10";
+    heightCanvas.style.width = "512px";
+    heightCtx.translate(0.5 * heightCanvas.width, 0.5 * heightCanvas.height);
+
+    // document.body.append(colorCanvas);
+    colorCanvas.style.position = "absolute";
+    colorCanvas.style.left = "512px";
+    colorCanvas.style.top = "0";
+    colorCanvas.style.zIndex = "10";
+    colorCanvas.style.width = "512px";
+    // colorCanvas.style.border = "1px solid #ff00ff";
+    colorCtx.translate(0.5 * colorCanvas.width, 0.5 * colorCanvas.height);
+
+    this.colorCanvas = colorCanvas;
+    this.colorCtx = colorCtx;
+    this.heightCanvas = heightCanvas;
+    this.heightCtx = heightCtx;
+  }
+
+  async populateColorMap(lat, lng, zoom) {
+    const cx = lngToTile(lng, zoom);
+    const cy = latToTile(lat, zoom);
+    const bx = Math.floor(cx);
+    const by = Math.floor(cy);
+
+    const promises = [];
+
+    const maxW = Math.pow(2, zoom);
+    const maxH = Math.pow(2, zoom);
+
+    const ox = (cx % 1) * 256;
+    const oy = (cy % 1) * 256;
+    const w0 = Math.ceil((-512 - ox) / 256);
+    const w1 = Math.ceil((512 - ox) / 256);
+    const h0 = Math.ceil((-512 - oy) / 256);
+    const h1 = Math.ceil((512 - oy) / 256);
+
+    for (let y = h0; y <= h1; y++) {
+      for (let x = w0; x <= w1; x++) {
+        promises.push(
+          new Promise(async (resolve, reject) => {
+            const c = await fetchTile(
+              mod(bx - x, maxW),
+              mod(by - y, maxH),
+              zoom,
+              this.generator
+            );
+            this.loadedTiles++;
+            // progress.progress = (this.loadedTiles * 100) / this.totalTiles;
+            const dx = -(x + (cx % 1)) * c.naturalWidth;
+            const dy = -(y + (cy % 1)) * c.naturalHeight;
+            this.colorCtx.drawImage(c, dx, dy);
+            resolve();
+          })
+        );
+      }
+    }
+
+    return Promise.all(promises);
+  }
+
+  async populateHeightMap(lat, lng, zoom) {
+    zoom = zoom - 1;
+    const cx = lngToTile(lng, zoom);
+    const cy = latToTile(lat, zoom);
+    const bx = Math.floor(cx);
+    const by = Math.floor(cy);
+
+    const promises = [];
+    const maxW = Math.pow(2, zoom);
+    const maxH = Math.pow(2, zoom);
+
+    const ox = (cx % 1) * 512;
+    const oy = (cy % 1) * 512;
+    const w0 = Math.ceil((-512 - ox) / 512);
+    const w1 = Math.ceil((512 - ox) / 512);
+    const h0 = Math.ceil((-512 - oy) / 512);
+    const h1 = Math.ceil((512 - oy) / 512);
+
+    for (let y = h0; y <= h1; y++) {
+      for (let x = w0; x <= w1; x++) {
+        promises.push(
+          new Promise(async (resolve, reject) => {
+            const c = await fetchElevationTile(
+              mod(bx - x, maxW),
+              mod(by - y, maxH),
+              zoom
+            );
+            this.loadedTiles++;
+            // progress.progress = (this.loadedTiles * 100) / this.totalTiles;
+            const dx = -(x + (cx % 1)) * c.naturalWidth;
+            const dy = -(y + (cy % 1)) * c.naturalHeight;
+            this.heightCtx.drawImage(c, dx, dy);
+            resolve();
+          })
+        );
+      }
+    }
+
+    return Promise.all(promises);
+  }
+
+  async populateMaps(lat, lng, zoom) {
+    this.loadedTiles = 0;
+    this.totalTiles = 6 * 6 + 4 * 4;
+    await Promise.all([
+      this.populateColorMap(lat, lng, zoom),
+      this.populateHeightMap(lat, lng, zoom),
+    ]);
+    this.invalidate();
+    this.processMaps();
+    //ssao.updateShadow(renderer, scene, lightCamera);
+    //progress.hide();
+    //ssao.reset();
+    console.log("done");
+  }
+
+  processMaps() {
     if (!this.invalidated) return;
     this.invalidated = false;
+    const colorCtx = this.colorCtx;
+    const heightCtx = this.heightCtx;
     console.log("PROCESS");
     const colorData = colorCtx.getImageData(
       0,
