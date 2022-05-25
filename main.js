@@ -1,8 +1,6 @@
 import "./deps/map.js";
-import "./deps/progress.js";
 import "./deps/snackbar.js";
 import "./deps/tweet-button.js";
-
 import {
   WebGLRenderer,
   Scene,
@@ -22,14 +20,11 @@ window.ssao = ssao;
 const speed = twixt.create("speed", 1);
 
 const map = document.querySelector("#map-browser");
-const progress = document.querySelector("progress-bar");
 const snackbar = document.querySelector("snack-bar");
 map.snackbar = snackbar;
 
-progress.hide();
-
 const renderer = new WebGLRenderer({
-  antialias: true,
+  //antialias: true,
   //alpha: true,
   preserveDrawingBuffer: true,
   powerPreference: "high-performance",
@@ -52,9 +47,7 @@ controls.addEventListener("change", () => {
   ssao.reset();
 });
 
-const width = 1024;
-const height = 1024;
-const heightMap = new HeightMap(width, height, 8);
+const heightMap = new HeightMap(1024, 1024, 8);
 heightMap.scale = 0.5;
 scene.add(heightMap.mesh);
 
@@ -87,8 +80,6 @@ async function load(lat, lng, zoom) {
   console.log("LOAD");
   loadedTiles = 0;
   totalTiles = 6 * 6 + 4 * 4;
-  progress.progress = 0;
-  progress.show();
   await heightMap.populateMaps(lat, lng, zoom + 1);
   ssao.reset();
 }
