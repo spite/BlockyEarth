@@ -101,6 +101,7 @@ class BlockyEarthUI extends LitElement {
   onSizeChange(e) {
     const { width, height } = resolutions[e.target.selectedIndex];
     this._generator.setSize(width, height);
+    this._generator.generate();
   }
 
   updateMesh() {}
