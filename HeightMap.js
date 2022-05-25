@@ -54,12 +54,17 @@ class HeightMap {
     this.points = [];
     this.scale = 80;
 
+    this.loadedTiles = 0;
+    this.totalTiles = 0;
+
     this.invalidated = false;
     this.mode = Hexagon;
     this.crop = NoCrop;
     this.quantHeight = NormalHeight;
     this.perfectAlignment = true;
     this.brickPalette = false;
+
+    this.onProgress = () => {};
 
     this.generate();
   }
@@ -392,10 +397,12 @@ class HeightMap {
 
     const ox = (cx % 1) * 256;
     const oy = (cy % 1) * 256;
-    const w0 = Math.ceil((-512 - ox) / 256);
-    const w1 = Math.ceil((512 - ox) / 256);
-    const h0 = Math.ceil((-512 - oy) / 256);
-    const h1 = Math.ceil((512 - oy) / 256);
+    const w0 = Math.ceil((-0.5 * this.width - ox) / 256);
+    const w1 = Math.ceil((0.5 * this.width - ox) / 256);
+    const h0 = Math.ceil((-0.5 * this.height - oy) / 256);
+    const h1 = Math.ceil((0.5 * this.height - oy) / 256);
+
+    this.totalTiles += (h1 - h0 + 1) * (w1 - w0 + 1);
 
     for (let y = h0; y <= h1; y++) {
       for (let x = w0; x <= w1; x++) {
@@ -408,7 +415,7 @@ class HeightMap {
               this.generator
             );
             this.loadedTiles++;
-            // progress.progress = (this.loadedTiles * 100) / this.totalTiles;
+            this.onProgress((this.loadedTiles * 100) / this.totalTiles);
             const dx = -(x + (cx % 1)) * c.naturalWidth;
             const dy = -(y + (cy % 1)) * c.naturalHeight;
             this.colorCtx.drawImage(c, dx, dy);
@@ -434,10 +441,12 @@ class HeightMap {
 
     const ox = (cx % 1) * 512;
     const oy = (cy % 1) * 512;
-    const w0 = Math.ceil((-512 - ox) / 512);
-    const w1 = Math.ceil((512 - ox) / 512);
-    const h0 = Math.ceil((-512 - oy) / 512);
-    const h1 = Math.ceil((512 - oy) / 512);
+    const w0 = Math.ceil((-0.5 * this.width - ox) / 512);
+    const w1 = Math.ceil((0.5 * this.width - ox) / 512);
+    const h0 = Math.ceil((-0.5 * this.height - oy) / 512);
+    const h1 = Math.ceil((0.5 * this.height - oy) / 512);
+
+    this.totalTiles += (h1 - h0 + 1) * (w1 - w0 + 1);
 
     for (let y = h0; y <= h1; y++) {
       for (let x = w0; x <= w1; x++) {
@@ -449,7 +458,7 @@ class HeightMap {
               zoom
             );
             this.loadedTiles++;
-            // progress.progress = (this.loadedTiles * 100) / this.totalTiles;
+            this.onProgress((this.loadedTiles * 100) / this.totalTiles);
             const dx = -(x + (cx % 1)) * c.naturalWidth;
             const dy = -(y + (cy % 1)) * c.naturalHeight;
             this.heightCtx.drawImage(c, dx, dy);
@@ -464,16 +473,16 @@ class HeightMap {
 
   async populateMaps(lat, lng, zoom) {
     this.loadedTiles = 0;
-    this.totalTiles = 6 * 6 + 4 * 4;
+    this.totalTiles = 0;
     await Promise.all([
       this.populateColorMap(lat, lng, zoom),
       this.populateHeightMap(lat, lng, zoom),
     ]);
+    this.loadedTiles = 0;
+    this.totalTiles = 0;
+    this.onProgress(0);
     this.invalidate();
     this.processMaps();
-    //ssao.updateShadow(renderer, scene, lightCamera);
-    //progress.hide();
-    //ssao.reset();
     console.log("done");
   }
 
