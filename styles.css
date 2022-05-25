@@ -54,12 +54,6 @@ canvas {
   right: 0;
   bottom: 0;
 }
-#progress {
-  position: absolute;
-  left: 0;
-  top: 0;
-  z-index: 100;
-}
 #info {
   position: absolute;
   left: 0.5em;
@@ -104,10 +98,4 @@ x-button svg {
 }
 x-button:hover svg {
   fill: white;
-}
-
-#colorTiles {
-  padding: 0.5em;
-  font-weight: bold;
-  border-radius: 3px;
 }
