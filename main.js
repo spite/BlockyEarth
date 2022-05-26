@@ -134,22 +134,6 @@ document.querySelector("#snapBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-document
-  .querySelector("#brickPalette")
-  .addEventListener("change", async (e) => {
-    heightMap.brickPalette = e.target.checked;
-    await heightMap.processMaps();
-    ssao.reset();
-    e.preventDefault();
-  });
-
-document.querySelector("#heightScale").addEventListener("change", async (e) => {
-  heightMap.scale = parseFloat(e.target.value);
-  await heightMap.processMaps();
-  ssao.reset();
-  e.preventDefault();
-});
-
 let time = 0;
 let prevTime = performance.now();
 
