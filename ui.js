@@ -47,6 +47,9 @@ const resolutions = [
   { width: 256, height: 512 },
   { width: 512, height: 1024 },
   { width: 1024, height: 2048 },
+  { width: 512, height: 256 },
+  { width: 1024, height: 512 },
+  { width: 2048, height: 1024 },
 ];
 
 class BlockyEarthUI extends LitElement {
@@ -98,10 +101,12 @@ class BlockyEarthUI extends LitElement {
     //   await load(map.lat, map.lng, map.zoom);
   }
 
-  onSizeChange(e) {
+  async onSizeChange(e) {
     const { width, height } = resolutions[e.target.selectedIndex];
     this._generator.setSize(width, height);
-    this._generator.generate();
+    await this._generator.populateMaps();
+    this._generator.invalidated = true;
+    this.updateMesh();
   }
 
   updateMesh() {}
