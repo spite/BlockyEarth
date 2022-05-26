@@ -82,24 +82,28 @@ class BlockyEarthUI extends LitElement {
     await this._generator.populateMaps();
     this._generator.invalidated = true;
     this.updateMesh();
+    this.done();
   }
 
   setMode(mode) {
     this._generator.mode = mode;
     this.mode = mode;
     this.updateMesh();
+    this.done();
   }
 
   setCrop(crop) {
     this._generator.crop = crop;
     this.crop = crop;
     this.updateMesh();
+    this.done();
   }
 
   setHeight(height) {
     this._generator.quantHeight = height;
     this.height = height;
     this.updateMesh();
+    this.done();
   }
 
   onTileChange(e) {
@@ -113,7 +117,15 @@ class BlockyEarthUI extends LitElement {
     this.fetch();
   }
 
+  async onAlignmentChange(e) {
+    this._generator.perfectAlignment = e.target.checked;
+    await this._generator.processMaps();
+    this.done();
+  }
+
   updateMesh() {}
+
+  done() {}
 
   render() {
     if (!this._generator) return;
@@ -238,7 +250,9 @@ class BlockyEarthUI extends LitElement {
             >
           </div>
           <div>
-            <input type="checkbox" id="perfectAlignment" />
+            <input type="checkbox" id="perfectAlignment" @change="${
+              this.onAlignmentChange
+            }" />
             <label for="perfectAlignment">Align</label>
             <input type="checkbox" id="brickPalette" />
             <label for="brickPalette">Palette</label>
