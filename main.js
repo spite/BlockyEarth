@@ -59,8 +59,11 @@ ui.updateMesh = debounce(() => {
   heightMap.generate();
   heightMap.processMaps();
   scene.add(heightMap.mesh);
-  ssao.reset();
 }, 100);
+
+ui.done = () => {
+  ssao.reset();
+};
 
 let currentLocation;
 
@@ -130,15 +133,6 @@ document.querySelector("#snapBtn").addEventListener("click", (e) => {
   capture();
   e.preventDefault();
 });
-
-document
-  .querySelector("#perfectAlignment")
-  .addEventListener("change", async (e) => {
-    heightMap.perfectAlignment = e.target.checked;
-    await heightMap.processMaps();
-    ssao.reset();
-    e.preventDefault();
-  });
 
 document
   .querySelector("#brickPalette")
