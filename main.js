@@ -65,6 +65,10 @@ ui.done = () => {
   ssao.reset();
 };
 
+ui.capture = () => {
+  capture();
+};
+
 let currentLocation;
 
 const s = 7;
@@ -101,8 +105,6 @@ function resize() {
 
 window.addEventListener("resize", resize);
 
-let running = true;
-
 function capture() {
   renderer.domElement.toBlob(function (blob) {
     const url = URL.createObjectURL(blob);
@@ -122,16 +124,6 @@ window.addEventListener("keydown", (e) => {
   if (path && path[0].tagName === "INPUT") {
     return;
   }
-});
-
-document.querySelector("#downloadBtn").addEventListener("click", (e) => {
-  heightMap.bake();
-  e.preventDefault();
-});
-
-document.querySelector("#snapBtn").addEventListener("click", (e) => {
-  capture();
-  e.preventDefault();
 });
 
 let time = 0;
