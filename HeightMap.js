@@ -64,12 +64,20 @@ class HeightMap {
     this.perfectAlignment = true;
     this.brickPalette = false;
 
+    this.lat = 0;
+    this.lng = 0;
+    this.zoom = 0;
+
     this.onProgress = () => {};
 
     this.generate();
   }
 
   setSize(width, height) {
+    if (this.width === width && this.height === height) {
+      return;
+    }
+    this.invalidated = true;
     this.width = width;
     this.height = height;
     this.initCanvases();
@@ -384,7 +392,11 @@ class HeightMap {
     this.heightCtx = heightCtx;
   }
 
-  async populateColorMap(lat, lng, zoom) {
+  async populateColorMap(lat = this.lat, lng = this.lng, zoom = this.zoom) {
+    this.lat = lat;
+    this.lng = lng;
+    this.zoom = zoom;
+
     const cx = lngToTile(lng, zoom);
     const cy = latToTile(lat, zoom);
     const bx = Math.floor(cx);
@@ -471,7 +483,7 @@ class HeightMap {
     return Promise.all(promises);
   }
 
-  async populateMaps(lat, lng, zoom) {
+  async populateMaps(lat = this.lat, lng = this.lng, zoom = this.zoom) {
     this.loadedTiles = 0;
     this.totalTiles = 0;
     await Promise.all([
