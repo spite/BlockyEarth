@@ -78,6 +78,12 @@ class BlockyEarthUI extends LitElement {
     this.height = this._generator.quantHeight;
   }
 
+  async fetch() {
+    await this._generator.populateMaps();
+    this._generator.invalidated = true;
+    this.updateMesh();
+  }
+
   setMode(mode) {
     this._generator.mode = mode;
     this.mode = mode;
@@ -98,15 +104,13 @@ class BlockyEarthUI extends LitElement {
 
   onTileChange(e) {
     this._generator.generator = generators[e.target.value];
-    //   await load(map.lat, map.lng, map.zoom);
+    this.fetch();
   }
 
-  async onSizeChange(e) {
+  onSizeChange(e) {
     const { width, height } = resolutions[e.target.selectedIndex];
     this._generator.setSize(width, height);
-    await this._generator.populateMaps();
-    this._generator.invalidated = true;
-    this.updateMesh();
+    this.fetch();
   }
 
   updateMesh() {}
