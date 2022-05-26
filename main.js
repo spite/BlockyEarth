@@ -73,13 +73,8 @@ ssao.shader.uniforms.lightPos.value.copy(lightCamera.position);
 ssao.backgroundColor.set(0xefffe0);
 window.ssao = ssao;
 
-let loadedTiles = 0;
-let totalTiles = 0;
-
 async function load(lat, lng, zoom) {
   console.log("LOAD");
-  loadedTiles = 0;
-  totalTiles = 6 * 6 + 4 * 4;
   await heightMap.populateMaps(lat, lng, zoom + 1);
   ssao.reset();
 }
