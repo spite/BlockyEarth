@@ -131,34 +131,6 @@ document.querySelector("#snapBtn").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-// document.querySelector("#noQuantBtn").addEventListener("click", (e) => {
-//   heightMap.quantHeight = NormalHeight;
-//   heightMap.processMaps(colorCtx, heightCtx);
-//   ssao.reset();
-//   e.preventDefault();
-// });
-
-// document.querySelector("#blockBtn").addEventListener("click", (e) => {
-//   heightMap.quantHeight = BlockHeight;
-//   heightMap.processMaps(colorCtx, heightCtx);
-//   ssao.reset();
-//   e.preventDefault();
-// });
-
-// document.querySelector("#halfBlockBtn").addEventListener("click", (e) => {
-//   heightMap.quantHeight = HalfBlockHeight;
-//   heightMap.processMaps(colorCtx, heightCtx);
-//   ssao.reset();
-//   e.preventDefault();
-// });
-
-// document.querySelector("#quarterBlockBtn").addEventListener("click", (e) => {
-//   heightMap.quantHeight = QuarterBlockHeight;
-//   heightMap.processMaps(colorCtx, heightCtx);
-//   ssao.reset();
-//   e.preventDefault();
-// });
-
 document
   .querySelector("#perfectAlignment")
   .addEventListener("change", async (e) => {
