@@ -123,6 +123,18 @@ class BlockyEarthUI extends LitElement {
     this.done();
   }
 
+  async onPaletteChange(e) {
+    this._generator.brickPalette = e.target.checked;
+    await this._generator.processMaps();
+    this.done();
+  }
+
+  async onHeightChange(e) {
+    this._generator.scale = parseFloat(e.target.value);
+    await this._generator.processMaps();
+    this.done();
+  }
+
   updateMesh() {}
 
   done() {}
@@ -254,9 +266,13 @@ class BlockyEarthUI extends LitElement {
               this.onAlignmentChange
             }" />
             <label for="perfectAlignment">Align</label>
-            <input type="checkbox" id="brickPalette" />
+            <input type="checkbox" id="brickPalette" @change="${
+              this.onPaletteChange
+            }" />
             <label for="brickPalette">Palette</label>
-            <input type="range" id="heightScale" min="0" max="10" step=".1" />
+            <input type="range" id="heightScale" min="0" max="10" step=".1" @change="${
+              this.onHeightChange
+            }" />
             <select @change="${this.onTileChange}">
               ${Object.keys(generators).map(
                 (name) => html`<option>${name}</option>`
