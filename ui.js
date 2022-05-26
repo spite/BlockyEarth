@@ -135,9 +135,15 @@ class BlockyEarthUI extends LitElement {
     this.done();
   }
 
+  onBake() {
+    this._generator.bake();
+  }
+
   updateMesh() {}
 
   done() {}
+
+  capture() {}
 
   render() {
     if (!this._generator) return;
@@ -167,10 +173,40 @@ class BlockyEarthUI extends LitElement {
           padding: 0.5em;
           font-weight: bold;
           border-radius: 3px;
-        }        
+        }
         progress-bar {
           position: fixed;
           z-index: 100;
+        }
+        input[type=checkbox]  {
+          content: '';
+    -webkit-appearance: none;
+    background-color: white;
+    border: 1px solid;
+    border-radius: 3px;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 5%), inset 0px -15px 10px -12px rgb(0 0 0 / 5%);
+    padding: 10px;
+    display: inline-block;
+    position: relative;
+    vertical-align: middle;
+    cursor: pointer;
+    margin-right: 5px;
+        }
+        input[type=checkbox]:checked + label:after {
+          content: '';
+          display: block;
+          position: absolute;
+          top: 0px;
+          left: -20px;
+          width: 6px;
+          height: 14px;
+          border: solid #0f5ea2;
+          border-width: 0 2px 2px 0;
+          transform: rotate(45deg);
+        }
+        label {
+          position: relative;
+          cursor: pointer;
         }
       </style>
       ${
@@ -280,7 +316,7 @@ class BlockyEarthUI extends LitElement {
             </select>
           </div>
           <div>
-            <x-button id="downloadBtn" icon left
+            <x-button id="downloadBtn" icon left @click="${this.onBake}"
               ><svg
                 id="Layer_2"
                 width="20px"
@@ -295,7 +331,7 @@ class BlockyEarthUI extends LitElement {
                   d="M31.5,7.8408c-0.00353-0.62661-0.41183-1.19667-0.99562-1.41307c0.00002-0.00001-13.99998-5.00001-13.99998-5.00001  c-0.32617-0.11523-0.68262-0.11523-1.00879,0l-14,5C0.91327,6.64527,0.5021,7.2131,0.50001,7.84082  C0.5,7.8408,0.5,24.16307,0.5,24.16307c0.00725,0.62234,0.40818,1.19899,0.99563,1.41112  C1.49561,25.5742,15.49561,30.5742,15.49561,30.5742c0.32012,0.11164,0.68868,0.11371,1.00879-0.00003  c0,0.00003,14-4.99997,14-4.99997c0.37621-0.14334,0.69083-0.4261,0.8593-0.79347c0.08542-0.1953,0.12606-0.4052,0.13629-0.61767  C31.5,24.16307,31.5,7.8408,31.5,7.8408z M3.5,9.96977l11,3.92853v13.13428l-11-3.92896V9.96977z M17.5,13.8983l11-3.92853v13.13385  l-11,3.92896V13.8983z M16,4.43358l9.54004,3.40723L16,11.24803L6.45996,7.8408L16,4.43358z"
                 /></svg
             ></x-button>
-            <x-button id="snapBtn" icon right
+            <x-button id="snapBtn" icon right @click="${this.capture}"
               ><svg
                 xmlns="http://www.w3.org/2000/svg"
                 height="24px"
