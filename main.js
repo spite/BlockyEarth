@@ -6,7 +6,7 @@ import {
   Scene,
   PerspectiveCamera,
   OrthographicCamera,
-} from "./third_party/three.module.js";
+} from "three";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
 import { SSAO } from "./SSAO.js";
