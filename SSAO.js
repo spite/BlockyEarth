@@ -6,6 +6,7 @@ import {
   NearestFilter,
   FloatType,
   Scene,
+  Color,
   Mesh,
   Vector2,
   PlaneBufferGeometry,
@@ -25,7 +26,6 @@ import {
   incPointer,
   resetPointer,
 } from "./jitter.js";
-import { Color } from "./third_party/three.module.js";
 
 const vertexShader = `precision highp float;
 
