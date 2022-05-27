@@ -1,4 +1,4 @@
-import { googleMapsKey } from "../config.js";
+import { googleMapsKey } from "./config.js";
 
 async function loadAPI() {
   return new Promise((resolve, reject) => {
