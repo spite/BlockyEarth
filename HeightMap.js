@@ -70,7 +70,7 @@ class HeightMap {
 
     this.onProgress = () => {};
 
-    this.generate();
+    //this.generate();
   }
 
   setSize(width, height) {
