@@ -26,6 +26,8 @@ import {
   NASAGIBSViirsEarthAtNight2012,
 } from "./mapbox.js";
 import "./deps/progress.js";
+import { debounce } from "./deps/debounce.js";
+import { Group } from "three";
 
 const generators = {
   "Google Maps Satellite": GoogleMaps,
@@ -66,95 +68,108 @@ class BlockyEarthUI extends LitElement {
 
   constructor() {
     super();
-    this._generator = null;
-  }
 
-  set generator(g) {
-    this._generator = g;
-    this._generator.generator = generators["Google Maps Satellite"];
-    this._generator.onProgress = (progress) => {
+    this.group = new Group();
+
+    this.updateMesh = debounce(() => {
+      this.group.remove(this.heightMap.mesh);
+      this.heightMap.generate();
+      this.heightMap.processMaps();
+      this.group.add(this.heightMap.mesh);
+    }, 20);
+
+    this.heightMap = new HeightMap(1024, 1024, 8);
+    this.heightMap.scale = 0.5;
+
+    this.heightMap.generator = generators["Google Maps Satellite"];
+    this.heightMap.onProgress = (progress) => {
       this.progress = progress;
     };
-    this.mode = this._generator.mode;
-    this.crop = this._generator.crop;
-    this.height = this._generator.quantHeight;
+    this.mode = this.heightMap.mode;
+    this.crop = this.heightMap.crop;
+    this.height = this.heightMap.quantHeight;
+
+    this.updateMesh();
+    this.done();
+  }
+
+  async load(lat, lng, zoom) {
+    await this.heightMap.populateMaps(lat, lng, zoom);
   }
 
   async fetch() {
-    await this._generator.populateMaps();
-    this._generator.invalidated = true;
+    await this.heightMap.populateMaps();
+    this.heightMap.invalidated = true;
     this.updateMesh();
     this.done();
   }
 
   setMode(mode) {
-    this._generator.mode = mode;
+    this.heightMap.mode = mode;
     this.mode = mode;
     this.updateMesh();
     this.done();
   }
 
   setCrop(crop) {
-    this._generator.crop = crop;
+    this.heightMap.crop = crop;
     this.crop = crop;
     this.updateMesh();
     this.done();
   }
 
   setHeight(height) {
-    this._generator.quantHeight = height;
+    this.heightMap.quantHeight = height;
     this.height = height;
     this.updateMesh();
     this.done();
   }
 
   onTileChange(e) {
-    this._generator.generator = generators[e.target.value];
+    this.heightMap.generator = generators[e.target.value];
     this.fetch();
   }
 
   onSizeChange(e) {
     const { width, height } = resolutions[e.target.selectedIndex];
-    this._generator.setSize(width, height);
+    this.heightMap.setSize(width, height);
     this.fetch();
   }
 
   onStepChange(e) {
     const step = steps[e.target.selectedIndex];
-    this._generator.setStep(step);
+    this.heightMap.setStep(step);
     this.fetch();
   }
 
   async onAlignmentChange(e) {
-    this._generator.perfectAlignment = e.target.checked;
-    await this._generator.processMaps();
+    this.heightMap.perfectAlignment = e.target.checked;
+    await this.heightMap.processMaps();
     this.done();
   }
 
   async onPaletteChange(e) {
-    this._generator.brickPalette = e.target.checked;
-    await this._generator.processMaps();
+    this.heightMap.brickPalette = e.target.checked;
+    await this.heightMap.processMaps();
     this.done();
   }
 
   async onHeightChange(e) {
-    this._generator.scale = parseFloat(e.target.value);
-    await this._generator.processMaps();
+    this.heightMap.scale = parseFloat(e.target.value);
+    await this.heightMap.processMaps();
     this.done();
   }
 
   onBake() {
-    this._generator.bake();
+    this.heightMap.bake();
   }
-
-  updateMesh() {}
 
   done() {}
 
   capture() {}
 
   render() {
-    if (!this._generator) return;
+    if (!this.heightMap) return;
     return html`
       <style>
         * {
