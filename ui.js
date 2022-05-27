@@ -52,6 +52,8 @@ const resolutions = [
   { width: 2048, height: 1024 },
 ];
 
+const steps = [1, 2, 4, 8, 16, 32, 64, 128];
+
 class BlockyEarthUI extends LitElement {
   static get properties() {
     return {
@@ -114,6 +116,12 @@ class BlockyEarthUI extends LitElement {
   onSizeChange(e) {
     const { width, height } = resolutions[e.target.selectedIndex];
     this._generator.setSize(width, height);
+    this.fetch();
+  }
+
+  onStepChange(e) {
+    const step = steps[e.target.selectedIndex];
+    this._generator.setStep(step);
     this.fetch();
   }
 
@@ -221,6 +229,10 @@ class BlockyEarthUI extends LitElement {
             ${resolutions.map(
               (v) => html`<option>${v.width}x${v.height}</option>`
             )}
+          </select>
+          Step: 
+          <select @change="${this.onStepChange}">
+            ${steps.map((v) => html`<option>${v}</option>`)}
           </select></div>
           <div>
             <span>Shape</span>
