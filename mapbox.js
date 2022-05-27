@@ -1,4 +1,4 @@
-import { mapBoxKey, nextZenKey } from "../config.js";
+import { mapBoxKey, nextZenKey } from "./config.js";
 
 // https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#ECMAScript_.28JavaScript.2FActionScript.2C_etc..29
 
