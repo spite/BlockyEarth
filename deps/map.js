@@ -1,5 +1,5 @@
 import { LitElement, html } from "https://unpkg.com/lit?module";
-import { mapBoxKey } from "./config.js";
+import { mapBoxKey } from "../config.js";
 import "./button.js";
 
 const locations = [
