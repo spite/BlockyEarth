@@ -83,6 +83,14 @@ class HeightMap {
     this.initCanvases();
   }
 
+  setStep(step) {
+    if (this.step === step) {
+      return;
+    }
+    this.invalidated = true;
+    this.step = step;
+  }
+
   set scale(scale) {
     this.invalidated = this.scale !== scale;
     this.verticalScale = scale;
