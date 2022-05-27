@@ -10,10 +10,8 @@ import {
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
 import { SSAO } from "./SSAO.js";
-import { HeightMap } from "./HeightMap.js";
 import { EquirectangularToCubemap } from "./modules/EquirectangularToCubemap.js";
 import "./ui.js";
-import { debounce } from "./deps/debounce.js";
 
 const ssao = new SSAO();
 window.ssao = ssao;
@@ -47,19 +45,8 @@ controls.addEventListener("change", () => {
   ssao.reset();
 });
 
-const heightMap = new HeightMap(1024, 1024, 8);
-heightMap.scale = 0.5;
-scene.add(heightMap.mesh);
-
 const ui = document.querySelector("#ui");
-ui.generator = heightMap;
-
-ui.updateMesh = debounce(() => {
-  scene.remove(heightMap.mesh);
-  heightMap.generate();
-  heightMap.processMaps();
-  scene.add(heightMap.mesh);
-}, 100);
+scene.add(ui.group);
 
 ui.done = () => {
   ssao.reset();
@@ -82,7 +69,7 @@ window.ssao = ssao;
 
 async function load(lat, lng, zoom) {
   console.log("LOAD");
-  await heightMap.populateMaps(lat, lng, zoom + 1);
+  await ui.load(lat, lng, zoom + 1);
   ssao.reset();
 }
 
