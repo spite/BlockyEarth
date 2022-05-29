@@ -56,6 +56,13 @@ const resolutions = [
 
 const steps = [1, 2, 4, 8, 16, 32, 64, 128];
 
+const defaultParams = {
+  scale: 0.5,
+  width: 1024,
+  height: 1024,
+  step: 8,
+};
+
 class BlockyEarthUI extends LitElement {
   static get properties() {
     return {
@@ -78,13 +85,16 @@ class BlockyEarthUI extends LitElement {
       this.group.add(this.heightMap.mesh);
     }, 20);
 
-    this.heightMap = new HeightMap(1024, 1024, 8);
-    this.heightMap.scale = 0.5;
+    const params = this.loadParams();
 
-    this.heightMap.generator = generators["Google Maps Satellite"];
+    this.heightMap = new HeightMap(params.width, params.height, params.step);
+
     this.heightMap.onProgress = (progress) => {
       this.progress = progress;
     };
+
+    this.heightMap.scale = 0.5;
+    this.heightMap.generator = generators["Google Maps Satellite"];
     this.mode = this.heightMap.mode;
     this.crop = this.heightMap.crop;
     this.height = this.heightMap.quantHeight;
@@ -92,6 +102,12 @@ class BlockyEarthUI extends LitElement {
     this.updateMesh();
     this.done();
   }
+
+  loadParams() {
+    return defaultParams;
+  }
+
+  saveParams() {}
 
   async load(lat, lng, zoom) {
     await this.heightMap.populateMaps(lat, lng, zoom);
@@ -142,21 +158,21 @@ class BlockyEarthUI extends LitElement {
     this.fetch();
   }
 
-  async onAlignmentChange(e) {
+  onAlignmentChange(e) {
     this.heightMap.perfectAlignment = e.target.checked;
-    await this.heightMap.processMaps();
+    this.heightMap.processMaps();
     this.done();
   }
 
-  async onPaletteChange(e) {
+  onPaletteChange(e) {
     this.heightMap.brickPalette = e.target.checked;
-    await this.heightMap.processMaps();
+    this.heightMap.processMaps();
     this.done();
   }
 
-  async onHeightChange(e) {
+  onHeightChange(e) {
     this.heightMap.scale = parseFloat(e.target.value);
-    await this.heightMap.processMaps();
+    this.heightMap.processMaps();
     this.done();
   }
 
@@ -169,7 +185,6 @@ class BlockyEarthUI extends LitElement {
   capture() {}
 
   render() {
-    if (!this.heightMap) return;
     return html`
       <style>
         * {
