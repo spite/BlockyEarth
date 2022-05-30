@@ -95,6 +95,7 @@ class BlockyEarthUI extends LitElement {
 
     this.heightMap.scale = 0.5;
     this.heightMap.generator = generators["Google Maps Satellite"];
+    this.step = this.heightMap.step;
     this.mode = this.heightMap.mode;
     this.crop = this.heightMap.crop;
     this.height = this.heightMap.quantHeight;
@@ -154,6 +155,7 @@ class BlockyEarthUI extends LitElement {
 
   onStepChange(e) {
     const step = steps[e.target.selectedIndex];
+    this.step = step;
     this.heightMap.setStep(step);
     this.fetch();
   }
@@ -262,7 +264,9 @@ class BlockyEarthUI extends LitElement {
           </select>
           Step: 
           <select @change="${this.onStepChange}">
-            ${steps.map((v) => html`<option>${v}</option>`)}
+            ${steps.map(
+              (v) => html`<option ?selected=${v === this.step}>${v}</option>`
+            )}
           </select></div>
           <div>
             <span>Shape</span>
