@@ -10,11 +10,9 @@ import {
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
 import { SSAO } from "./SSAO.js";
-import { EquirectangularToCubemap } from "./modules/EquirectangularToCubemap.js";
 import "./ui.js";
 
 const ssao = new SSAO();
-window.ssao = ssao;
 const speed = twixt.create("speed", 1);
 
 const map = document.querySelector("#map-browser");
