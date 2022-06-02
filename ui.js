@@ -29,6 +29,17 @@ import "./deps/progress.js";
 import { debounce } from "./deps/debounce.js";
 import { Group } from "three";
 
+const modes = new Map();
+[Box, RoundedBox, PlasticBrick, Hexagon].forEach((v) =>
+  modes.set(v.toString(), v)
+);
+const crops = new Map();
+[NoCrop, CircleCrop, HexagonCrop].forEach((v) => crops.set(v.toString(), v));
+const heights = new Map();
+[NormalHeight, BlockHeight, HalfBlockHeight, QuarterBlockHeight].forEach((v) =>
+  heights.set(v.toString(), v)
+);
+
 const generators = {
   "Google Maps Satellite": GoogleMaps,
   "ArcGIS World Imagery": EsriWorldImagery,
