@@ -69,8 +69,6 @@ class HeightMap {
     this.zoom = 0;
 
     this.onProgress = () => {};
-
-    //this.generate();
   }
 
   setSize(width, height) {
