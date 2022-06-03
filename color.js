@@ -28,7 +28,19 @@ function lab2rgb(lab) {
   ];
 }
 
+const map = new Map();
+
+function hashRGB(rgb) {
+  return rgb[0] * 256 * 256 + rgb[1] * 256 + rgb[2];
+}
+
 function rgb2lab(rgb) {
+  const hash = hashRGB(rgb);
+  const v = map.get(hash);
+  if (v) {
+    return v;
+  }
+
   var r = rgb[0] / 255,
     g = rgb[1] / 255,
     b = rgb[2] / 255,
@@ -48,7 +60,9 @@ function rgb2lab(rgb) {
   y = y > 0.008856 ? Math.pow(y, 1 / 3) : 7.787 * y + 16 / 116;
   z = z > 0.008856 ? Math.pow(z, 1 / 3) : 7.787 * z + 16 / 116;
 
-  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+  const res = [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+  map.set(hash, res);
+  return res;
 }
 
 // calculate the perceptual distance between colors in CIELAB
@@ -73,10 +87,27 @@ function deltaE(labA, labB) {
   return i < 0 ? 0 : Math.sqrt(i);
 }
 
+const deltaMap = new Map();
+
 function delta(a, b) {
+  // const hashA = hashRGB(a);
+  // const hashB = hashRGB(b);
+  // const hash1 = hashA * (256 * 256 * 256) + hashB;
+  // const hash2 = hashB * (256 * 256 * 256) + hashA;
+  // let v = deltaMap.get(hash1);
+  // if (v) {
+  //   return v;
+  // }
+  // v = deltaMap.get(hash2);
+  // if (v) {
+  //   return v;
+  // }
+
   const labA = rgb2lab(a);
   const labB = rgb2lab(b);
-  return deltaE(labA, labB);
+  const dt = deltaE(labA, labB);
+  // deltaMap.set(hash1, dt);
+  return dt;
 }
 
 export { delta };
