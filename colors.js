@@ -72,6 +72,8 @@ function logColor(c) {
   )})`;
 }
 
+const hsl = new Color();
+
 function getClosestColor(c) {
   // const l = luma(c);
   // for (let i = 1; i < table.length; i++) {
@@ -82,8 +84,7 @@ function getClosestColor(c) {
   // return table[table.length - 1].color;
   let min = 1000;
   let sel;
-  const hsl0 = new Color();
-  const hsl = new Color();
+  // const hsl0 = new Color();
   c.getHSL(hsl);
   const rgb = hexToRgb(c.getHex());
   for (const item of table) {
