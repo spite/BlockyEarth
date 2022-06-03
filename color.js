@@ -90,23 +90,9 @@ function deltaE(labA, labB) {
 const deltaMap = new Map();
 
 function delta(a, b) {
-  // const hashA = hashRGB(a);
-  // const hashB = hashRGB(b);
-  // const hash1 = hashA * (256 * 256 * 256) + hashB;
-  // const hash2 = hashB * (256 * 256 * 256) + hashA;
-  // let v = deltaMap.get(hash1);
-  // if (v) {
-  //   return v;
-  // }
-  // v = deltaMap.get(hash2);
-  // if (v) {
-  //   return v;
-  // }
-
   const labA = rgb2lab(a);
   const labB = rgb2lab(b);
   const dt = deltaE(labA, labB);
-  // deltaMap.set(hash1, dt);
   return dt;
 }
 
