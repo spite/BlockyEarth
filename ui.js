@@ -213,9 +213,15 @@ class BlockyEarthUI extends LitElement {
           gap: 0.5em;
           margin-bottom: 0.5em;
         }
-        #tools div {
+        #tools > div {
           display: flex;
           align-items: center;
+          gap: 1em;
+        }
+        #tools > div > div {
+          // border: 1px solid red;
+          align-items: center;
+          display: flex;
         }
         #tools div span {
           margin-right: 0.5em;
@@ -229,22 +235,23 @@ class BlockyEarthUI extends LitElement {
           position: fixed;
           z-index: 100;
         }
-        input[type=checkbox]  {
-          content: '';
-    -webkit-appearance: none;
-    background-color: white;
-    border: 1px solid;
-    border-radius: 3px;
-    box-shadow: 0 1px 2px rgb(0 0 0 / 5%), inset 0px -15px 10px -12px rgb(0 0 0 / 5%);
-    padding: 10px;
-    display: inline-block;
-    position: relative;
-    vertical-align: middle;
-    cursor: pointer;
-    margin-right: 5px;
+        input[type="checkbox"] {
+          content: "";
+          -webkit-appearance: none;
+          background-color: white;
+          border: 1px solid;
+          border-radius: 3px;
+          box-shadow: 0 1px 2px rgb(0 0 0 / 5%),
+            inset 0px -15px 10px -12px rgb(0 0 0 / 5%);
+          padding: 10px;
+          display: inline-block;
+          position: relative;
+          vertical-align: middle;
+          cursor: pointer;
+          margin-right: 5px;
         }
-        input[type=checkbox]:checked + label:after {
-          content: '';
+        input[type="checkbox"]:checked + label:after {
+          content: "";
           display: block;
           position: absolute;
           top: 0px;
@@ -260,25 +267,37 @@ class BlockyEarthUI extends LitElement {
           cursor: pointer;
         }
       </style>
-      ${
-        this.progress > 0
-          ? html`<progress-bar progress="${this.progress}"></progress-bar>`
-          : ``
-      }
+      ${this.progress > 0
+        ? html`<progress-bar progress="${this.progress}"></progress-bar>`
+        : ``}
       <div id="tools">
         <div>
-          Size: 
-          <select @change="${this.onSizeChange}">
-            ${resolutions.map(
-              (v) => html`<option>${v.width}x${v.height}</option>`
-            )}
-          </select>
-          Step: 
-          <select @change="${this.onStepChange}">
-            ${steps.map(
-              (v) => html`<option ?selected=${v === this.step}>${v}</option>`
-            )}
-          </select></div>
+          <div>
+            <span>Size</span>
+            <select @change="${this.onSizeChange}">
+              ${resolutions.map(
+                (v) => html`<option>${v.width}x${v.height}</option>`
+              )}
+            </select>
+          </div>
+          <div>
+            <span>Step</span>
+            <select @change="${this.onStepChange}">
+              ${steps.map(
+                (v) => html`<option ?selected=${v === this.step}>${v}</option>`
+              )}
+            </select>
+          </div>
+          <div>
+            <span>Tiles</span>
+            <select @change="${this.onTileChange}">
+              ${Object.keys(generators).map(
+                (name) => html`<option>${name}</option>`
+              )}
+            </select>
+          </div>
+        </div>
+        <div>
           <div>
             <span>Shape</span>
             <x-button
@@ -306,6 +325,8 @@ class BlockyEarthUI extends LitElement {
               >Hexagon</x-button
             >
           </div>
+        </div>
+        <div>
           <div>
             <span>Crop</span>
             <x-button
@@ -327,6 +348,8 @@ class BlockyEarthUI extends LitElement {
               >Hexagon</x-button
             >
           </div>
+        </div>
+        <div>
           <div>
             <span>Height</span>
             <x-button
@@ -354,24 +377,37 @@ class BlockyEarthUI extends LitElement {
               >Quarter-block</x-button
             >
           </div>
+        </div>
+        <div>
           <div>
-            <input type="checkbox" id="perfectAlignment" @change="${
-              this.onAlignmentChange
-            }" />
+            <input
+              type="checkbox"
+              id="perfectAlignment"
+              @change="${this.onAlignmentChange}"
+            />
             <label for="perfectAlignment">Align</label>
-            <input type="checkbox" id="brickPalette" @change="${
-              this.onPaletteChange
-            }" />
-            <label for="brickPalette">Palette</label>
-            <input type="range" id="heightScale" min="0" max="10" step=".1" @change="${
-              this.onHeightChange
-            }" />
-            <select @change="${this.onTileChange}">
-              ${Object.keys(generators).map(
-                (name) => html`<option>${name}</option>`
-              )}
-            </select>
           </div>
+          <div>
+            <input
+              type="checkbox"
+              id="brickPalette"
+              @change="${this.onPaletteChange}"
+            />
+            <label for="brickPalette">Palette</label>
+          </div>
+          <div>
+            <span>Vertical scale:</span>
+            <input
+              type="range"
+              id="heightScale"
+              min="0"
+              max="10"
+              step=".1"
+              @change="${this.onHeightChange}"
+            />
+          </div>
+        </div>
+        <div>
           <div>
             <x-button id="downloadBtn" icon left @click="${this.onBake}"
               ><svg
