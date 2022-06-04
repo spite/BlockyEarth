@@ -506,6 +506,7 @@ class HeightMap {
 
   processMaps() {
     if (!this.invalidated) return;
+    console.time("process");
     this.invalidated = false;
     const colorCtx = this.colorCtx;
     const heightCtx = this.heightCtx;
@@ -549,15 +550,11 @@ class HeightMap {
     console.log(min, max);
 
     const heights = this.mesh.geometry.attributes.height.array;
-    let min2 = Number.MAX_SAFE_INTEGER;
-    let max2 = Number.MIN_SAFE_INTEGER;
     let i = 0;
     for (const p of this.points) {
       let h = this.getHeight(heightData.data, Math.floor(p.x), Math.floor(p.y));
       //h = ((h - min) / (max - min)) * this.verticalScale;
       h = (h - min) * this.verticalScale;
-      min2 = Math.min(min2, h);
-      max2 = Math.max(max2, h);
       switch (this._quantHeight) {
         case NormalHeight:
           break;
@@ -571,10 +568,11 @@ class HeightMap {
           h = Math.floor(h / 0.25) * 0.25;
           break;
       }
+      h = 1 + h;
+      h /= this.step;
       if (!this._perfectAlignment) {
         h += 0.005 - 0.01 * Math.random();
       }
-      h = 1 + h;
 
       const c = this.getColor(colorData.data, Math.floor(p.x), Math.floor(p.y));
 
@@ -586,6 +584,7 @@ class HeightMap {
       }
       i++;
     }
+    console.timeEnd("process");
 
     this.mesh.instanceColor.needsUpdate = true;
     this.mesh.geometry.attributes.height.needsUpdate = true;
