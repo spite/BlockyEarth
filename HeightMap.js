@@ -11,6 +11,7 @@ import {
   Quaternion,
   Matrix4,
   BufferAttribute,
+  IcosahedronBufferGeometry,
 } from "./third_party/three.module.js";
 import { RoundedBoxGeometry } from "./third_party/RoundedBoxGeometry.js";
 import { generateRoundedPrismGeometry } from "./RoundedPrismGeomtry.js";
@@ -210,6 +211,7 @@ class HeightMap {
       this.boxScale,
       0.01 * this.boxScale
     );
+    this.geo = new IcosahedronBufferGeometry(this.boxScale / 2, 3);
   }
 
   generatePlasticBrickGeometry() {
@@ -517,18 +519,6 @@ class HeightMap {
       colorCtx.canvas.width,
       colorCtx.canvas.height
     );
-    // const c = new Color();
-    // const data = colorData.data;
-    // for (let y = 0; y < colorCtx.canvas.height; y++) {
-    //   for (let x = 0; x < colorCtx.canvas.width; x++) {
-    //     const p = (y * colorCtx.canvas.width + x) * 4;
-    //     c.setRGB(data[p] / 255, data[p + 1] / 255, data[p + 2] / 255);
-    //     const c2 = getClosestColor(c);
-    //     data[p] = c2.r * 255;
-    //     data[p + 1] = c2.g * 255;
-    //     data[p + 2] = c2.b * 255;
-    //   }
-    // }
     const heightData = heightCtx.getImageData(
       0,
       0,
@@ -555,6 +545,7 @@ class HeightMap {
       let h = this.getHeight(heightData.data, Math.floor(p.x), Math.floor(p.y));
       //h = ((h - min) / (max - min)) * this.verticalScale;
       h = (h - min) * this.verticalScale;
+      h /= this.step;
       switch (this._quantHeight) {
         case NormalHeight:
           break;
@@ -568,8 +559,7 @@ class HeightMap {
           h = Math.floor(h / 0.25) * 0.25;
           break;
       }
-      h = 1 + h;
-      h /= this.step;
+      h = 1 / this.step + h;
       if (!this._perfectAlignment) {
         h += 0.005 - 0.01 * Math.random();
       }
