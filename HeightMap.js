@@ -10,6 +10,7 @@ import {
   Mesh,
   Quaternion,
   Matrix4,
+  Box3,
   BufferAttribute,
   IcosahedronBufferGeometry,
 } from "./third_party/three.module.js";
@@ -33,6 +34,7 @@ const Box = Symbol("Box");
 const RoundedBox = Symbol("RoundedBox");
 const Hexagon = Symbol("Hexagon");
 const PlasticBrick = Symbol("PlasticBrick");
+const Capsule = Symbol("Capsule");
 
 const NoCrop = Symbol("NoCrop");
 const CircleCrop = Symbol("CircleCrop");
@@ -68,6 +70,8 @@ class HeightMap {
     this.lat = 0;
     this.lng = 0;
     this.zoom = 0;
+
+    this.bb = new Box3(new Vector3(0, 0, 0), new Vector3(0, 0, 0));
 
     this.onProgress = () => {};
   }
@@ -173,6 +177,9 @@ class HeightMap {
       case Hexagon:
         this.generateHexagonGeometry();
         break;
+      case Capsule:
+        this.generateCapsuleGeometry();
+        break;
     }
     switch (this.mode) {
       case Box:
@@ -180,6 +187,7 @@ class HeightMap {
       case PlasticBrick:
         this.generateGridPoints();
         break;
+      case Capsule:
       case Hexagon:
         this.generateHexagonGrid();
         break;
@@ -211,6 +219,9 @@ class HeightMap {
       this.boxScale,
       0.01 * this.boxScale
     );
+  }
+
+  generateCapsuleGeometry() {
     this.geo = new IcosahedronBufferGeometry(this.boxScale / 2, 3);
   }
 
@@ -508,6 +519,7 @@ class HeightMap {
 
   processMaps() {
     if (!this.invalidated) return;
+    this.bb.makeEmpty();
     console.time("process");
     this.invalidated = false;
     const colorCtx = this.colorCtx;
@@ -539,6 +551,7 @@ class HeightMap {
     }
     console.log(min, max);
 
+    const tmp = new Vector3();
     const heights = this.mesh.geometry.attributes.height.array;
     let i = 0;
     for (const p of this.points) {
@@ -564,6 +577,8 @@ class HeightMap {
         h += 0.005 - 0.01 * Math.random();
       }
 
+      tmp.set(p.v.x, p.v.y + h, p.v.z);
+      this.bb.expandByPoint(tmp);
       const c = this.getColor(colorData.data, Math.floor(p.x), Math.floor(p.y));
 
       heights[i] = h * this.boxScale;
@@ -690,6 +705,7 @@ export {
   RoundedBox,
   PlasticBrick,
   Hexagon,
+  Capsule,
   NoCrop,
   CircleCrop,
   HexagonCrop,
