@@ -7,6 +7,7 @@ import {
   PerspectiveCamera,
   OrthographicCamera,
 } from "three";
+import { adjustPerspectiveToBB, adjustOrthoToBB } from "../deps/adjust.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
 import { SSAO } from "./SSAO.js";
@@ -47,6 +48,8 @@ const ui = document.querySelector("#ui");
 scene.add(ui.group);
 
 ui.done = () => {
+  // adjustPerspectiveToBB(lightCamera, ui.heightMap.bb);
+  // adjustOrthoToBB(lightCamera, ui.heightMap.bb);
   ssao.reset();
 };
 
@@ -57,7 +60,7 @@ ui.capture = () => {
 let currentLocation;
 
 const s = 7;
-//const lightCamera = new OrthographicCamera(-s, s, s, -s, 5, 30);
+// const lightCamera = new OrthographicCamera(-s, s, s, -s, 5, 30);
 const lightCamera = new PerspectiveCamera(65, 1, 5, 30);
 lightCamera.position.set(5, 7.5, -10);
 lightCamera.lookAt(scene.position);
