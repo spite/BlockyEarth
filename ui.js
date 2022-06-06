@@ -6,6 +6,7 @@ import {
   HalfBlockHeight,
   QuarterBlockHeight,
   HeightMap,
+  Capsule,
   Hexagon,
   HexagonCrop,
   NoCrop,
@@ -28,6 +29,7 @@ import {
 import "./deps/progress.js";
 import { debounce } from "./deps/debounce.js";
 import { Group } from "three";
+import { Box3, Vector3 } from "./third_party/three.module.js";
 
 const modes = new Map();
 [Box, RoundedBox, PlasticBrick, Hexagon].forEach((v) =>
@@ -323,6 +325,12 @@ class BlockyEarthUI extends LitElement {
               ?active=${this.mode === Hexagon}
               right
               >Hexagon</x-button
+            >
+            <x-button
+              @click=${() => this.setMode(Capsule)}
+              ?active=${this.mode === Capsule}
+              right
+              >Capsule</x-button
             >
           </div>
         </div>
