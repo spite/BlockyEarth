@@ -110,42 +110,33 @@ function NASAGIBSViirsEarthAtNight2012(x, y, z) {
   return `https://map1.vis.earthdata.nasa.gov/wmts-webmerc/VIIRS_CityLights_2012/default//GoogleMapsCompatible_Level8/${z}/${y}/${x}.jpg`; // NASAGIBS.ViirsEarthAtNight2012
 }
 
-async function fetchTile(x, y, z, generator = EsriWorldImagery) {
-  // const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/${z}/${x}/${y}?access_token=${mapBoxKey}`;
-
-  const url = generator(x, y, z);
-
+function fetchTile(x, y, z, generator = EsriWorldImagery) {
   const img = new Image();
   img.crossOrigin = "anonymous";
-  img.src = url;
-  await img.decode();
+  img.src = generator(x, y, z);
   return img;
 }
 
-async function fetchElevationTile(x, y, z) {
-  // const url = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}.pngraw?access_token=${mapBoxKey}`;
-  // const url = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}@2x.pngraw?access_token=${mapBoxKey}`;
-  //const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/${z}/${x}/${y}?access_token=${mapBoxKey}`;
-  //const url = `https://a.tiles.mapbox.com/styles/v1/mapbox/light-v10/tiles/${z}/${x}/${y}@2x?access_token=${mapBoxKey}`;
-
-  const url = `https://tile.nextzen.org/tilezen/terrain/v1/512/terrarium/${z}/${x}/${y}.png?api_key=${nextZenKey}`;
-
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  img.src = url;
-  await img.decode();
-  return img; //convertHeight(img);
+function nextZenElevation(x, y, z) {
+  return `https://tile.nextzen.org/tilezen/terrain/v1/512/terrarium/${z}/${x}/${y}.png?api_key=${nextZenKey}`;
 }
 
 function getNextZenHeight(r, g, b) {
   return r * 1 + g / 256 + b / 65536;
 }
 
+function mapBoxElevation(x, y, z) {
+  return `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}@2x.pngraw?access_token=${mapBoxKey}`;
+}
+
+function getMapBoxHeight(r, g, b) {
+  return -10000 + (r * 256 * 256 + g * 256 + b) * 0.1;
+}
+
 export {
   lngToTile,
   latToTile,
   pointToTileFraction,
-  fetchElevationTile,
   tileToLatLng,
   getNextZenHeight,
   getHeight,
@@ -159,4 +150,5 @@ export {
   USGSUSImagery,
   GeoportailFrance,
   NASAGIBSViirsEarthAtNight2012,
+  nextZenElevation,
 };
