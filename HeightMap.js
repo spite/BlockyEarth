@@ -22,13 +22,8 @@ import { GLTFExporter } from "./third_party/GLTFExporter.js";
 import { PLYExporter } from "./third_party/PLYExporter.js";
 import { downloadArrayBuffer, downloadStr } from "./download.js";
 import { getClosestColor } from "./colors.js";
-import {
-  fetchElevationTile,
-  latToTile,
-  lngToTile,
-  fetchTile,
-} from "./mapbox.js";
-import { mod, randomInRange } from "./modules/Maf.js";
+import { nextZenElevation, latToTile, lngToTile, fetchTile } from "./mapbox.js";
+import { mod } from "./modules/Maf.js";
 
 const Box = Symbol("Box");
 const RoundedBox = Symbol("RoundedBox");
@@ -72,6 +67,8 @@ class HeightMap {
     this.zoom = 0;
 
     this.bb = new Box3(new Vector3(0, 0, 0), new Vector3(0, 0, 0));
+
+    this.tiles = new Set();
 
     this.onProgress = () => {};
   }
@@ -439,18 +436,27 @@ class HeightMap {
       for (let x = w0; x <= w1; x++) {
         promises.push(
           new Promise(async (resolve, reject) => {
-            const c = await fetchTile(
+            const img = fetchTile(
               mod(bx - x, maxW),
               mod(by - y, maxH),
               zoom,
               this.generator
             );
-            this.loadedTiles++;
-            this.onProgress((this.loadedTiles * 100) / this.totalTiles);
-            const dx = -(x + (cx % 1)) * c.naturalWidth;
-            const dy = -(y + (cy % 1)) * c.naturalHeight;
-            this.colorCtx.drawImage(c, dx, dy);
-            resolve();
+            this.tiles.add(img);
+            try {
+              await img.decode();
+              this.loadedTiles++;
+              this.onProgress((this.loadedTiles * 100) / this.totalTiles);
+              const dx = -(x + (cx % 1)) * img.naturalWidth;
+              const dy = -(y + (cy % 1)) * img.naturalHeight;
+              this.colorCtx.drawImage(img, dx, dy);
+              this.tiles.delete(img);
+              resolve();
+            } catch (e) {
+              console.log(e);
+              this.tiles.delete(img);
+              reject();
+            }
           })
         );
       }
@@ -483,17 +489,27 @@ class HeightMap {
       for (let x = w0; x <= w1; x++) {
         promises.push(
           new Promise(async (resolve, reject) => {
-            const c = await fetchElevationTile(
+            const img = fetchTile(
               mod(bx - x, maxW),
               mod(by - y, maxH),
-              zoom
+              zoom,
+              nextZenElevation
             );
-            this.loadedTiles++;
-            this.onProgress((this.loadedTiles * 100) / this.totalTiles);
-            const dx = -(x + (cx % 1)) * c.naturalWidth;
-            const dy = -(y + (cy % 1)) * c.naturalHeight;
-            this.heightCtx.drawImage(c, dx, dy);
-            resolve();
+            this.tiles.add(img);
+            try {
+              await img.decode();
+              this.loadedTiles++;
+              this.onProgress((this.loadedTiles * 100) / this.totalTiles);
+              const dx = -(x + (cx % 1)) * img.naturalWidth;
+              const dy = -(y + (cy % 1)) * img.naturalHeight;
+              this.heightCtx.drawImage(img, dx, dy);
+              this.tiles.delete(img);
+              resolve();
+            } catch (e) {
+              console.log(e);
+              this.tiles.delete(img);
+              reject();
+            }
           })
         );
       }
@@ -502,7 +518,16 @@ class HeightMap {
     return Promise.all(promises);
   }
 
+  cancel() {
+    const pending = this.tiles.values();
+    for (const tile of pending) {
+      tile.src = null;
+      this.tiles.delete(tile);
+    }
+  }
+
   async populateMaps(lat = this.lat, lng = this.lng, zoom = this.zoom) {
+    this.cancel();
     this.loadedTiles = 0;
     this.totalTiles = 0;
     await Promise.all([
