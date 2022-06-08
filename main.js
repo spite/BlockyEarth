@@ -35,7 +35,7 @@ document.body.append(renderer.domElement);
 const scene = new Scene();
 const camera = new PerspectiveCamera(75, 1, 0.01, 1000);
 camera.position.set(-2, 10, 10);
-camera.position.set(0, 10, 0);
+// camera.position.set(0, 10, 0);
 camera.lookAt(scene.position);
 
 const controls = new OrbitControls(camera, renderer.domElement);
