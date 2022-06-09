@@ -1,4 +1,4 @@
-import { Vector2, MathUtils } from "three";
+import { PerspectiveCamera, MathUtils } from "three";
 
 const jitterTable = [
   [0.5625, 0.4375],
@@ -89,21 +89,33 @@ function updateProjectionMatrixJitter(camera, size) {
   }
 
   var skew = camera.filmOffset;
-  if (skew !== 0) left += (near * skew) / camera.getFilmWidth();
+  if (skew !== 0 && camera.getFilmWidth)
+    left += (near * skew) / camera?.getFilmWidth();
 
-  makePerspectiveJitter(
-    camera.projectionMatrix,
-    left,
-    left + width,
-    top,
-    top - height,
-    near,
-    camera.far,
-    offsetX,
-    offsetY,
-    size.x,
-    size.y
-  );
+  if (camera instanceof PerspectiveCamera) {
+    makePerspectiveJitter(
+      camera.projectionMatrix,
+      left,
+      left + width,
+      top,
+      top - height,
+      near,
+      camera.far,
+      offsetX,
+      offsetY,
+      size.x,
+      size.y
+    );
+  } else {
+    const scaleX = (camera.left - camera.right) / size.x;
+    const scaleY = (camera.top - camera.bottom) / size.y;
+
+    camera.left -= offsetX / size.x;
+    camera.top -= offsetY / size.y;
+    camera.right -= offsetX / size.x;
+    camera.bottom -= offsetY / size.y;
+    camera.updateProjectionMatrix();
+  }
 
   camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
   // camera.projectionMatrixInverse.getInverse(camera.projectionMatrix);
