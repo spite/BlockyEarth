@@ -305,11 +305,7 @@ class HeightMap {
   }
 
   initMesh() {
-    this.mesh = new InstancedMesh(
-      this.geo,
-      new MeshBasicMaterial(),
-      this.points.length
-    );
+    this.mesh = new InstancedMesh(this.geo, this.material, this.points.length);
     this.mesh.geometry.setAttribute(
       "height",
       new InstancedBufferAttribute(new Float32Array(this.points.length), 1)
@@ -602,7 +598,7 @@ class HeightMap {
         h += 0.005 - 0.01 * Math.random();
       }
 
-      tmp.set(p.v.x, p.v.y + h, p.v.z);
+      tmp.set(p.v.x, h * this.boxScale, p.v.z);
       this.bb.expandByPoint(tmp);
       const c = this.getColor(colorData.data, Math.floor(p.x), Math.floor(p.y));
 
