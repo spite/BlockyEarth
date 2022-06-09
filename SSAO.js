@@ -519,9 +519,9 @@ class SSAO {
     renderer.setRenderTarget(this.renderTarget);
     renderer.setClearColor(this.backgroundColor, 1);
     renderer.clear();
-    scene.overrideMaterial = this.shader;
+
     renderer.render(scene, camera);
-    scene.overrideMaterial = null;
+
     renderer.setRenderTarget(null);
     renderer.setClearColor(0, 0);
     this.pass.render(renderer);
