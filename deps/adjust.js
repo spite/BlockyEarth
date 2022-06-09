@@ -37,6 +37,7 @@ function adjustPerspectiveToVertices(camera, vertices, keepAspectRatio = true) {
     maxX = Math.max(maxX, Math.abs(projectedVertex.x));
     maxY = Math.max(maxY, Math.abs(projectedVertex.y));
     const viewSpaceVertex = vertex.clone().applyMatrix4(m);
+    console.log(viewSpaceVertex.z);
     maxZ = Math.max(maxZ, viewSpaceVertex.z);
     minZ = Math.min(minZ, viewSpaceVertex.z);
     // Calculate FOV for the current vertex.
@@ -94,7 +95,7 @@ function adjustOrthoToVertices(camera, vertices) {
   camera.far = 2000;
   camera.updateProjectionMatrix();
 
-  const m = camera.matrixWorld.clone().invert();
+  m.copy(camera.matrixWorld).invert();
 
   // Build all vertices of a box defined by the bounding box.
   let maxX = Number.MIN_SAFE_INTEGER;
