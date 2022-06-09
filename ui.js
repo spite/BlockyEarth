@@ -29,7 +29,15 @@ import {
 import "./deps/progress.js";
 import { debounce } from "./deps/debounce.js";
 import { Group } from "three";
-import { Box3, Vector3 } from "./third_party/three.module.js";
+import {
+  RawShaderMaterial,
+  BoxBufferGeometry,
+  Mesh,
+  GLSL3,
+  Box3Helper,
+  Vector3,
+} from "three";
+import { Matrix4 } from "./third_party/three.module.js";
 
 const modes = new Map();
 [Box, RoundedBox, PlasticBrick, Hexagon].forEach((v) =>
@@ -76,6 +84,40 @@ const defaultParams = {
   step: 8,
 };
 
+const vertexShader = `precision highp float;
+
+in vec3 position;
+
+uniform mat4 projectionMatrix;
+uniform mat4 modelViewMatrix;
+
+void main() {
+  vec4 mvPosition = modelViewMatrix * vec4(position, 1.);
+  gl_Position = projectionMatrix * mvPosition;
+}
+`;
+
+const fragmentShader = `precision highp float;
+
+layout(location = 0) out vec4 color;
+layout(location = 1) out vec4 position;
+layout(location = 2) out vec4 normal;
+
+void main() {
+  color = vec4(1.,0.,1.,1.);
+  position = vec4(0.);
+  normal = vec4(0.);
+}
+`;
+
+const helperMaterial = new RawShaderMaterial({
+  uniforms: {},
+  vertexShader,
+  fragmentShader,
+  wireframe: true,
+  glslVersion: GLSL3,
+});
+
 class BlockyEarthUI extends LitElement {
   static get properties() {
     return {
@@ -101,6 +143,12 @@ class BlockyEarthUI extends LitElement {
     const params = this.loadParams();
 
     this.heightMap = new HeightMap(params.width, params.height, params.step);
+
+    const geo = new BoxBufferGeometry(1, 1, 1);
+    const move = new Matrix4().makeTranslation(0, 0.5, 0);
+    geo.applyMatrix4(move);
+    this.helper = new Mesh(geo, helperMaterial);
+    this.group.add(this.helper);
 
     this.heightMap.onProgress = (progress) => {
       this.progress = progress;
