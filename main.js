@@ -12,6 +12,7 @@ import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
 import { SSAO } from "./SSAO.js";
 import "./ui.js";
+import { Box3, Vector3 } from "./third_party/three.module.js";
 
 const ssao = new SSAO();
 const speed = twixt.create("speed", 1);
@@ -45,11 +46,22 @@ controls.addEventListener("change", () => {
 });
 
 const ui = document.querySelector("#ui");
+ui.heightMap.material = ssao.shader;
 scene.add(ui.group);
 
 ui.done = () => {
-  // adjustPerspectiveToBB(lightCamera, ui.heightMap.bb);
-  // adjustOrthoToBB(lightCamera, ui.heightMap.bb);
+  lightCamera.position.set(5, 7.5, -10).normalize().multiplyScalar(30);
+  lightCamera.lookAt(scene.position);
+  lightCamera.updateMatrixWorld();
+
+  const bb = ui.heightMap.bb.clone();
+  const size = new Vector3();
+  bb.getSize(size);
+  const center = new Vector3();
+  bb.getCenter(center);
+  ui.helper.scale.copy(size);
+  // adjustPerspectiveToBB(lightCamera, bb);
+  adjustOrthoToBB(lightCamera, bb);
   ssao.reset();
 };
 
@@ -60,9 +72,9 @@ ui.capture = () => {
 let currentLocation;
 
 const s = 7;
-// const lightCamera = new OrthographicCamera(-s, s, s, -s, 5, 30);
-const lightCamera = new PerspectiveCamera(65, 1, 5, 30);
-lightCamera.position.set(5, 7.5, -10);
+const lightCamera = new OrthographicCamera(-s, s, s, -s, 5, 30);
+// const lightCamera = new PerspectiveCamera(65, 1, 5, 30);
+lightCamera.position.set(5, 7.5, -10).normalize().multiplyScalar(30);
 lightCamera.lookAt(scene.position);
 ssao.shader.uniforms.lightPos.value.copy(lightCamera.position);
 ssao.backgroundColor.set(0xefffe0);
