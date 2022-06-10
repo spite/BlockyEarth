@@ -7,7 +7,7 @@ import {
   PerspectiveCamera,
   OrthographicCamera,
 } from "three";
-import { adjustPerspectiveToBB, adjustOrthoToBB } from "../deps/adjust.js";
+import { adjustPerspectiveToBB, adjustOrthoToBB } from "./deps/adjust.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
 import { SSAO } from "./SSAO.js";
