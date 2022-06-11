@@ -284,6 +284,7 @@ class BlockyEarthUI extends LitElement {
         }
         #tools div span {
           margin-right: 0.5em;
+          white-space: nowrap;
         }
         select {
           padding: 0.5em;
@@ -343,7 +344,7 @@ class BlockyEarthUI extends LitElement {
       <div id="tools" class="${this.collapsed ? "hidden" : ""}">
         <div>
           <div>
-            <span>Size</span>
+            <span>Map size</span>
             <select @change="${this.onSizeChange}">
               ${resolutions.map(
                 (v) => html`<option>${v.width}x${v.height}</option>`
@@ -351,7 +352,7 @@ class BlockyEarthUI extends LitElement {
             </select>
           </div>
           <div>
-            <span>Step</span>
+            <span>Block size</span>
             <select @change="${this.onStepChange}">
               ${steps.map(
                 (v) => html`<option ?selected=${v === this.step}>${v}</option>`
