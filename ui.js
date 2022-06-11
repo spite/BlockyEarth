@@ -275,9 +275,12 @@ class BlockyEarthUI extends LitElement {
           gap: 1em;
         }
         #tools > div > div {
-          // border: 1px solid red;
           align-items: center;
           display: flex;
+          flex: 1;
+        }
+        #tools > div > div:last-child {
+          flex: 1 1 100%;
         }
         #tools div span {
           margin-right: 0.5em;
@@ -324,6 +327,9 @@ class BlockyEarthUI extends LitElement {
         }
         #tools.hidden {
           display: none;
+        }
+        #heightScale {
+          flex: 1;
         }
       </style>
       ${this.progress > 0
@@ -450,6 +456,19 @@ class BlockyEarthUI extends LitElement {
         </div>
         <div>
           <div>
+            <span>Vertical scale:</span>
+            <input
+              type="range"
+              id="heightScale"
+              min="0"
+              max="100"
+              step=".1"
+              @change="${this.onHeightChange}"
+            />
+          </div>
+        </div>
+        <div>
+          <div>
             <input
               type="checkbox"
               id="perfectAlignment"
@@ -464,17 +483,6 @@ class BlockyEarthUI extends LitElement {
               @change="${this.onPaletteChange}"
             />
             <label for="brickPalette">Palette</label>
-          </div>
-          <div>
-            <span>Vertical scale:</span>
-            <input
-              type="range"
-              id="heightScale"
-              min="0"
-              max="10"
-              step=".1"
-              @change="${this.onHeightChange}"
-            />
           </div>
         </div>
         <div>
