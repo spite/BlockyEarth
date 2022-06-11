@@ -125,6 +125,7 @@ class BlockyEarthUI extends LitElement {
       crop: Symbol,
       height: Symbol,
       progress: Number,
+      collapsed: Boolean,
     };
   }
 
@@ -132,6 +133,7 @@ class BlockyEarthUI extends LitElement {
     super();
 
     this.group = new Group();
+    this.collapsed = false;
 
     this.updateMesh = debounce(() => {
       this.group.remove(this.heightMap.mesh);
@@ -247,6 +249,10 @@ class BlockyEarthUI extends LitElement {
 
   capture() {}
 
+  toggle() {
+    this.collapsed = !this.collapsed;
+  }
+
   render() {
     return html`
       <style>
@@ -261,7 +267,7 @@ class BlockyEarthUI extends LitElement {
           flex-wrap: wrap;
           flex-direction: column;
           gap: 0.5em;
-          margin-bottom: 0.5em;
+          margin: 0.5em 0;
         }
         #tools > div {
           display: flex;
@@ -316,11 +322,19 @@ class BlockyEarthUI extends LitElement {
           position: relative;
           cursor: pointer;
         }
+        #tools.hidden {
+          display: none;
+        }
       </style>
       ${this.progress > 0
         ? html`<progress-bar progress="${this.progress}"></progress-bar>`
         : ``}
-      <div id="tools">
+      <p>
+        <x-button @click=${this.toggle}
+          >Options ${this.collapsed ? "▶" : "▼"}</x-button
+        >
+      </p>
+      <div id="tools" class="${this.collapsed ? "hidden" : ""}">
         <div>
           <div>
             <span>Size</span>
