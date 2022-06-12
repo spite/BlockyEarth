@@ -140,6 +140,7 @@ class BlockyEarthUI extends LitElement {
       this.heightMap.generate();
       this.heightMap.processMaps();
       this.group.add(this.heightMap.mesh);
+      this.done();
     }, 20);
 
     const params = this.loadParams();
@@ -175,44 +176,46 @@ class BlockyEarthUI extends LitElement {
 
   async load(lat, lng, zoom) {
     await this.heightMap.populateMaps(lat, lng, zoom);
+    this.done();
   }
 
   async fetch() {
     await this.heightMap.populateMaps();
     this.heightMap.invalidated = true;
     this.updateMesh();
-    this.done();
   }
 
   setMode(mode) {
     this.heightMap.mode = mode;
     this.mode = mode;
+    this.serialize();
     this.updateMesh();
-    this.done();
   }
 
   setCrop(crop) {
     this.heightMap.crop = crop;
     this.crop = crop;
+    this.serialize();
     this.updateMesh();
-    this.done();
   }
 
   setHeight(height) {
     this.heightMap.quantHeight = height;
     this.height = height;
+    this.serialize();
     this.updateMesh();
-    this.done();
   }
 
   onTileChange(e) {
     this.heightMap.generator = generators[e.target.value];
+    this.serialize();
     this.fetch();
   }
 
   onSizeChange(e) {
     const { width, height } = resolutions[e.target.selectedIndex];
     this.heightMap.setSize(width, height);
+    this.serialize();
     this.fetch();
   }
 
@@ -220,25 +223,47 @@ class BlockyEarthUI extends LitElement {
     const step = steps[e.target.selectedIndex];
     this.step = step;
     this.heightMap.setStep(step);
+    this.serialize();
     this.fetch();
   }
 
   onAlignmentChange(e) {
     this.heightMap.perfectAlignment = e.target.checked;
     this.heightMap.processMaps();
+    this.serialize();
     this.done();
   }
 
   onPaletteChange(e) {
     this.heightMap.brickPalette = e.target.checked;
     this.heightMap.processMaps();
+    this.serialize();
     this.done();
   }
 
   onHeightChange(e) {
     this.heightMap.scale = parseFloat(e.target.value);
     this.heightMap.processMaps();
+    this.serialize();
     this.done();
+  }
+
+  serialize() {
+    const values = {
+      width: this.heightMap.width,
+      height: this.heightMap.height,
+      mode: this.heightMap.mode,
+      crop: this.heightMap.crop,
+      heightQuant: this.heightMap.quantHeight,
+      // tile: this.heightMap.generator,
+      step: this.heightMap.step,
+      alignment: this.heightMap.perfectAlignment,
+      palette: this.heightMap.brickPalette,
+      scale: this.heightMap.scale,
+    };
+    const keys = Object.keys(values);
+    const config = keys.map((key) => `${key}=${values[key]}`).join("&");
+    console.log(config);
   }
 
   onBake() {
@@ -462,8 +487,8 @@ class BlockyEarthUI extends LitElement {
               type="range"
               id="heightScale"
               min="0"
-              max="100"
-              step=".1"
+              max="6"
+              step=".01"
               @change="${this.onHeightChange}"
             />
           </div>
