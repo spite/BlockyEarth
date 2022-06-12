@@ -81,7 +81,7 @@ const defaultParams = {
   scale: 0.5,
   width: 1024,
   height: 1024,
-  step: 8,
+  step: 2,
 };
 
 const vertexShader = `precision highp float;
@@ -146,6 +146,7 @@ class BlockyEarthUI extends LitElement {
     const params = this.loadParams();
 
     this.heightMap = new HeightMap(params.width, params.height, params.step);
+    this.setSize(params.width, params.height);
 
     const geo = new BoxBufferGeometry(1, 1, 1);
     const move = new Matrix4().makeTranslation(0, 0.5, 0);
@@ -212,10 +213,16 @@ class BlockyEarthUI extends LitElement {
     this.fetch();
   }
 
-  onSizeChange(e) {
-    const { width, height } = resolutions[e.target.selectedIndex];
+  setSize(width, height) {
+    this.mapWidth = width;
+    this.mapHeight = height;
     this.heightMap.setSize(width, height);
     this.serialize();
+  }
+
+  onSizeChange(e) {
+    const { width, height } = resolutions[e.target.selectedIndex];
+    this.setSize(width, height);
     this.fetch();
   }
 
@@ -372,7 +379,13 @@ class BlockyEarthUI extends LitElement {
             <span>Map size</span>
             <select @change="${this.onSizeChange}">
               ${resolutions.map(
-                (v) => html`<option>${v.width}x${v.height}</option>`
+                (v) =>
+                  html`<option
+                    ?selected=${v.width === this.mapWidth &&
+                    v.height === this.mapHeight}
+                  >
+                    ${v.width}x${v.height}
+                  </option>`
               )}
             </select>
           </div>
