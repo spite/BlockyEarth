@@ -29,14 +29,7 @@ import {
 import "./deps/progress.js";
 import { debounce } from "./deps/debounce.js";
 import { Group } from "three";
-import {
-  RawShaderMaterial,
-  BoxBufferGeometry,
-  Mesh,
-  GLSL3,
-  Box3Helper,
-  Vector3,
-} from "three";
+import { RawShaderMaterial, BoxBufferGeometry, Mesh, GLSL3 } from "three";
 import { Matrix4 } from "./third_party/three.module.js";
 
 const modes = new Map();
@@ -79,9 +72,12 @@ const steps = [1, 2, 4, 8, 16, 32, 64, 128];
 
 const defaultParams = {
   scale: 0.5,
-  width: 1024,
-  height: 1024,
+  mapWidth: 1024,
+  mapHeight: 1024,
   step: 2,
+  mode: Hexagon,
+  crop: NoCrop,
+  height: NormalHeight,
 };
 
 const vertexShader = `precision highp float;
@@ -145,8 +141,12 @@ class BlockyEarthUI extends LitElement {
 
     const params = this.loadParams();
 
-    this.heightMap = new HeightMap(params.width, params.height, params.step);
-    this.setSize(params.width, params.height);
+    this.heightMap = new HeightMap(
+      params.mapWidth,
+      params.mapHeight,
+      params.step
+    );
+    this.setSize(params.mapWidth, params.mapHeight);
 
     const geo = new BoxBufferGeometry(1, 1, 1);
     const move = new Matrix4().makeTranslation(0, 0.5, 0);
