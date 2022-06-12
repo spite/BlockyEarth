@@ -25,20 +25,20 @@ import { getClosestColor } from "./colors.js";
 import { nextZenElevation, latToTile, lngToTile, fetchTile } from "./mapbox.js";
 import { mod } from "./modules/Maf.js";
 
-const Box = Symbol("Box");
-const RoundedBox = Symbol("RoundedBox");
-const Hexagon = Symbol("Hexagon");
-const PlasticBrick = Symbol("PlasticBrick");
-const Capsule = Symbol("Capsule");
+const Box = 1; //Symbol("Box");
+const RoundedBox = 2; //Symbol("RoundedBox");
+const Hexagon = 3; //Symbol("Hexagon");
+const PlasticBrick = 4; //Symbol("PlasticBrick");
+const Capsule = 5; //Symbol("Capsule");
 
-const NoCrop = Symbol("NoCrop");
-const CircleCrop = Symbol("CircleCrop");
-const HexagonCrop = Symbol("HexagonCrop");
+const NoCrop = 1; //Symbol("NoCrop");
+const CircleCrop = 2; //Symbol("CircleCrop");
+const HexagonCrop = 3; //Symbol("HexagonCrop");
 
-const NormalHeight = Symbol("NormalHeight");
-const BlockHeight = Symbol("BlockHeight");
-const HalfBlockHeight = Symbol("HalfBlockHeight");
-const QuarterBlockHeight = Symbol("QuarterBlockHeight");
+const NormalHeight = 1; //Symbol("NormalHeight");
+const BlockHeight = 2; //Symbol("BlockHeight");
+const HalfBlockHeight = 3; //Symbol("HalfBlockHeight");
+const QuarterBlockHeight = 4; //Symbol("QuarterBlockHeight");
 
 const dummy = new Object3D();
 const c = new Color();
@@ -578,7 +578,7 @@ class HeightMap {
     for (const p of this.points) {
       let h = this.getHeight(heightData.data, Math.floor(p.x), Math.floor(p.y));
       //h = ((h - min) / (max - min)) * this.verticalScale;
-      h = (h - min) * this.verticalScale;
+      h = (h - min) * Math.exp(this.verticalScale);
       h /= this.step;
       switch (this._quantHeight) {
         case NormalHeight:
