@@ -198,6 +198,8 @@ class MapBrowser extends LitElement {
         #map-container {
           position: relative;
           flex: 1 1 400px;
+          border-radius: 5px;
+          overflow: hidden;
         }
         #map-container.collapsed {
           height: 0;
