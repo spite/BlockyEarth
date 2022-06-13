@@ -115,7 +115,6 @@ function updateProjectionMatrixJitter(camera, size) {
   }
 
   camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-  // camera.projectionMatrixInverse.getInverse(camera.projectionMatrix);
 }
 
 function incPointer() {
