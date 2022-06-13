@@ -577,7 +577,7 @@ class HeightMap {
     let i = 0;
     for (const p of this.points) {
       let h = this.getHeight(heightData.data, Math.floor(p.x), Math.floor(p.y));
-      //h = ((h - min) / (max - min)) * this.verticalScale;
+      // h = ((h - min) / (max - min)) * Math.exp(this.verticalScale);
       h = (h - min) * Math.exp(this.verticalScale);
       h /= this.step;
       switch (this._quantHeight) {
