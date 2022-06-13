@@ -122,6 +122,7 @@ class BlockyEarthUI extends LitElement {
       height: Number,
       progress: Number,
       collapsed: Boolean,
+      heightScale: Number,
     };
   }
 
@@ -160,6 +161,7 @@ class BlockyEarthUI extends LitElement {
 
     this.heightMap.scale = 0.5;
     this.heightMap.generator = generators["Google Maps Satellite"];
+
     this.step = this.heightMap.step;
     this.mode = this.heightMap.mode;
     this.crop = this.heightMap.crop;
@@ -359,12 +361,16 @@ class BlockyEarthUI extends LitElement {
         label {
           position: relative;
           cursor: pointer;
+          white-space: nowrap;
         }
         #tools.hidden {
           display: none;
         }
         #heightScale {
           flex: 1;
+        }
+        x-button svg {
+          margin-left: 0.5em;
         }
       </style>
       ${this.progress > 0
@@ -506,7 +512,7 @@ class BlockyEarthUI extends LitElement {
               step=".01"
               value="${this.heightScale}"
               @change="${this.onHeightChange}"
-            />
+            />${this.heightScale}
           </div>
         </div>
         <div>
@@ -526,11 +532,18 @@ class BlockyEarthUI extends LitElement {
             />
             <label for="brickPalette">Palette</label>
           </div>
-        </div>
-        <div>
+          <div>
+            <input
+              type="checkbox"
+              id="normalizeHeight"
+              @change="${this.onNormalizeHeightChange}"
+            />
+            <label for="normalizeHeight">Normalize height</label>
+          </div>
           <div>
             <x-button id="downloadBtn" icon left @click="${this.onBake}"
-              ><svg
+              >Download
+              <svg
                 id="Layer_2"
                 width="20px"
                 height="20px"
@@ -545,12 +558,11 @@ class BlockyEarthUI extends LitElement {
                 /></svg
             ></x-button>
             <x-button id="snapBtn" icon right @click="${this.capture}"
-              ><svg
+              >Snapshot<svg
                 xmlns="http://www.w3.org/2000/svg"
                 height="24px"
                 viewBox="0 0 24 24"
                 width="24px"
-                fill="#000000"
               >
                 <path d="M0 0h24v24H0V0z" fill="none" />
                 <path
