@@ -117,9 +117,9 @@ const helperMaterial = new RawShaderMaterial({
 class BlockyEarthUI extends LitElement {
   static get properties() {
     return {
-      mode: Symbol,
-      crop: Symbol,
-      height: Symbol,
+      mode: Number,
+      crop: Number,
+      height: Number,
       progress: Number,
       collapsed: Boolean,
     };
@@ -164,6 +164,7 @@ class BlockyEarthUI extends LitElement {
     this.mode = this.heightMap.mode;
     this.crop = this.heightMap.crop;
     this.height = this.heightMap.quantHeight;
+    this.heightScale = this.heightMap.scale;
 
     this.updateMesh();
     this.done();
@@ -249,7 +250,8 @@ class BlockyEarthUI extends LitElement {
   }
 
   onHeightChange(e) {
-    this.heightMap.scale = parseFloat(e.target.value);
+    this.heightScale = parseFloat(e.target.value);
+    this.heightMap.scale = this.heightScale;
     this.heightMap.processMaps();
     this.serialize();
     this.done();
@@ -502,6 +504,7 @@ class BlockyEarthUI extends LitElement {
               min="0"
               max="6"
               step=".01"
+              value="${this.heightScale}"
               @change="${this.onHeightChange}"
             />
           </div>
