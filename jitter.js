@@ -107,9 +107,6 @@ function updateProjectionMatrixJitter(camera, size) {
       size.y
     );
   } else {
-    const scaleX = (camera.left - camera.right) / size.x;
-    const scaleY = (camera.top - camera.bottom) / size.y;
-
     camera.left -= offsetX / size.x;
     camera.top -= offsetY / size.y;
     camera.right -= offsetX / size.x;
