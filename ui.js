@@ -1,4 +1,4 @@
-import { LitElement, html } from "https://unpkg.com/lit?module";
+import { LitElement, html } from "lit";
 import {
   BlockHeight,
   Box,
@@ -14,14 +14,15 @@ import {
   PlasticBrick,
   RoundedBox,
 } from "./HeightMap.js";
-import { GoogleMaps } from "./google-maps.js";
+import { GoogleMaps, ready as googleMapsReady } from "./google-maps.js";
 import {
   EsriWorldImagery,
   EsriWorldPhysical,
   EsriWorldTerrain,
-  StamenTerrain,
-  StamenWatercolor,
-  StamenTonerBackground,
+  EsriWorldShadedRelief,
+  EsriNatGeoWorldMap,
+  OpenTopoMap,
+  CartoLight,
   USGSUSImagery,
   GeoportailFrance,
   NASAGIBSViirsEarthAtNight2012,
@@ -33,7 +34,7 @@ import { RawShaderMaterial, BoxBufferGeometry, Mesh, GLSL3 } from "three";
 import { Matrix4 } from "./third_party/three.module.js";
 
 const modes = new Map();
-[Box, RoundedBox, PlasticBrick, Hexagon].forEach((v) =>
+[Box, RoundedBox, PlasticBrick, Hexagon, Capsule].forEach((v) =>
   modes.set(v.toString(), v)
 );
 const crops = new Map();
@@ -48,9 +49,10 @@ const generators = {
   "ArcGIS World Imagery": EsriWorldImagery,
   "ArcGIS World Terrain": EsriWorldTerrain,
   "ArcGIS World Physical": EsriWorldPhysical,
-  "Stamen Terrain": StamenTerrain,
-  "Stamen Watercolor": StamenWatercolor,
-  "Stamen Toner background": StamenTonerBackground,
+  "ArcGIS Shaded Relief": EsriWorldShadedRelief,
+  "National Geographic": EsriNatGeoWorldMap,
+  OpenTopoMap: OpenTopoMap,
+  "Carto Light": CartoLight,
   "USGS US Imagery": USGSUSImagery,
   "Geoportail France": GeoportailFrance,
   "NASA at night 2012": NASAGIBSViirsEarthAtNight2012,
@@ -71,13 +73,14 @@ const resolutions = [
 const steps = [1, 2, 4, 8, 16, 32, 64, 128];
 
 const defaultParams = {
-  scale: 0.5,
+  scale: 5,
   mapWidth: 1024,
   mapHeight: 1024,
   step: 2,
   mode: Hexagon,
   crop: NoCrop,
   height: NormalHeight,
+  tiles: "Google Maps Satellite",
 };
 
 const vertexShader = `precision highp float;
@@ -123,6 +126,9 @@ class BlockyEarthUI extends LitElement {
       progress: Number,
       collapsed: Boolean,
       heightScale: Number,
+      alignment: Boolean,
+      palette: Boolean,
+      normalize: Boolean,
     };
   }
 
@@ -153,37 +159,47 @@ class BlockyEarthUI extends LitElement {
     const move = new Matrix4().makeTranslation(0, 0.5, 0);
     geo.applyMatrix4(move);
     this.helper = new Mesh(geo, helperMaterial);
+    this.helper.visible = false;
     this.group.add(this.helper);
 
     this.heightMap.onProgress = (progress) => {
       this.progress = progress;
     };
 
-    this.heightMap.scale = 0.5;
-    this.heightMap.generator = generators["Google Maps Satellite"];
+    this.heightMap.mode = params.mode;
+    this.heightMap.crop = params.crop;
+    this.heightMap.quantHeight = params.height;
+    this.heightMap.scale = params.scale;
+    this.heightMap.generator = generators[params.tiles];
 
+    this.tiles = params.tiles;
     this.step = this.heightMap.step;
     this.mode = this.heightMap.mode;
     this.crop = this.heightMap.crop;
     this.height = this.heightMap.quantHeight;
     this.heightScale = this.heightMap.scale;
+    this.alignment = this.heightMap.perfectAlignment;
+    this.palette = this.heightMap.brickPalette;
+    this.normalize = this.heightMap.normalizeHeight;
 
     this.updateMesh();
     this.done();
   }
 
   loadParams() {
-    return defaultParams;
+    return { ...defaultParams };
   }
 
   saveParams() {}
 
   async load(lat, lng, zoom) {
+    await googleMapsReady;
     await this.heightMap.populateMaps(lat, lng, zoom);
     this.done();
   }
 
   async fetch() {
+    await googleMapsReady;
     await this.heightMap.populateMaps();
     this.heightMap.invalidated = true;
     this.updateMesh();
@@ -238,14 +254,24 @@ class BlockyEarthUI extends LitElement {
   }
 
   onAlignmentChange(e) {
-    this.heightMap.perfectAlignment = e.target.checked;
+    this.alignment = e.target.checked;
+    this.heightMap.perfectAlignment = this.alignment;
     this.heightMap.processMaps();
     this.serialize();
     this.done();
   }
 
   onPaletteChange(e) {
-    this.heightMap.brickPalette = e.target.checked;
+    this.palette = e.target.checked;
+    this.heightMap.brickPalette = this.palette;
+    this.heightMap.processMaps();
+    this.serialize();
+    this.done();
+  }
+
+  onNormalizeHeightChange(e) {
+    this.normalize = e.target.checked;
+    this.heightMap.normalizeHeight = this.normalize;
     this.heightMap.processMaps();
     this.serialize();
     this.done();
@@ -520,6 +546,7 @@ class BlockyEarthUI extends LitElement {
             <input
               type="checkbox"
               id="perfectAlignment"
+              ?checked=${this.alignment}
               @change="${this.onAlignmentChange}"
             />
             <label for="perfectAlignment">Align</label>
@@ -528,6 +555,7 @@ class BlockyEarthUI extends LitElement {
             <input
               type="checkbox"
               id="brickPalette"
+              ?checked=${this.palette}
               @change="${this.onPaletteChange}"
             />
             <label for="brickPalette">Palette</label>
@@ -536,6 +564,7 @@ class BlockyEarthUI extends LitElement {
             <input
               type="checkbox"
               id="normalizeHeight"
+              ?checked=${this.normalize}
               @change="${this.onNormalizeHeightChange}"
             />
             <label for="normalizeHeight">Normalize height</label>
@@ -557,7 +586,7 @@ class BlockyEarthUI extends LitElement {
                   d="M31.5,7.8408c-0.00353-0.62661-0.41183-1.19667-0.99562-1.41307c0.00002-0.00001-13.99998-5.00001-13.99998-5.00001  c-0.32617-0.11523-0.68262-0.11523-1.00879,0l-14,5C0.91327,6.64527,0.5021,7.2131,0.50001,7.84082  C0.5,7.8408,0.5,24.16307,0.5,24.16307c0.00725,0.62234,0.40818,1.19899,0.99563,1.41112  C1.49561,25.5742,15.49561,30.5742,15.49561,30.5742c0.32012,0.11164,0.68868,0.11371,1.00879-0.00003  c0,0.00003,14-4.99997,14-4.99997c0.37621-0.14334,0.69083-0.4261,0.8593-0.79347c0.08542-0.1953,0.12606-0.4052,0.13629-0.61767  C31.5,24.16307,31.5,7.8408,31.5,7.8408z M3.5,9.96977l11,3.92853v13.13428l-11-3.92896V9.96977z M17.5,13.8983l11-3.92853v13.13385  l-11,3.92896V13.8983z M16,4.43358l9.54004,3.40723L16,11.24803L6.45996,7.8408L16,4.43358z"
                 /></svg
             ></x-button>
-            <x-button id="snapBtn" icon right @click="${this.capture}"
+            <x-button id="snapBtn" icon right @click="${() => this.capture()}"
               >Snapshot<svg
                 xmlns="http://www.w3.org/2000/svg"
                 height="24px"

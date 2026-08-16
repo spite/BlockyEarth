@@ -6,13 +6,13 @@ import {
   Scene,
   PerspectiveCamera,
   OrthographicCamera,
+  Vector3,
 } from "three";
 import { adjustPerspectiveToBB, adjustOrthoToBB } from "./deps/adjust.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { twixt } from "./deps/twixt.js";
 import { SSAO } from "./SSAO.js";
 import "./ui.js";
-import { Box3, Vector3 } from "./third_party/three.module.js";
 
 const ssao = new SSAO();
 const speed = twixt.create("speed", 1);
@@ -81,7 +81,7 @@ ssao.backgroundColor.set(0xefffe0);
 window.ssao = ssao;
 
 async function load(lat, lng, zoom) {
-  console.log("LOAD");
+  currentLocation = `${lat.toFixed(5)}-${lng.toFixed(5)}-${zoom}`;
   await ui.load(lat, lng, zoom + 1);
   ssao.reset();
 }
@@ -110,21 +110,12 @@ function capture() {
     const url = URL.createObjectURL(blob);
 
     const downloadBtn = document.createElement("a");
-    downloadBtn.setAttribute(
-      "download",
-      `fsk-${performance.now()}-${currentLocation}.png`
-    );
+    downloadBtn.setAttribute("download", `blocky-earth-${currentLocation}.png`);
     downloadBtn.setAttribute("href", url);
     downloadBtn.click();
+    URL.revokeObjectURL(url);
   });
 }
-
-window.addEventListener("keydown", (e) => {
-  const path = e.composedPath();
-  if (path && path[0].tagName === "INPUT") {
-    return;
-  }
-});
 
 let time = 0;
 let prevTime = performance.now();

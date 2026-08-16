@@ -1,4 +1,4 @@
-import { LitElement, html } from "https://unpkg.com/lit?module";
+import { LitElement, html } from "lit";
 import { mapBoxKey } from "../config.js";
 import "./button.js";
 

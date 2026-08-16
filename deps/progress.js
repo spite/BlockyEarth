@@ -1,4 +1,4 @@
-import { LitElement, html } from "https://unpkg.com/lit?module";
+import { LitElement, html } from "lit";
 
 class ProgressBar extends LitElement {
   static get properties() {

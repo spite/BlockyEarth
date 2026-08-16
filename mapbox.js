@@ -86,16 +86,20 @@ function EsriWorldPhysical(x, y, z) {
   return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/${z}/${y}/${x}`; // Esri.WorldImagery
 }
 
-function StamenTerrain(x, y, z) {
-  return `https://stamen-tiles-b.a.ssl.fastly.net/terrain-background/${z}/${x}/${y}.png`; // Stamen Terrain background
+function EsriWorldShadedRelief(x, y, z) {
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/${z}/${y}/${x}`; // Esri.WorldShadedRelief
 }
 
-function StamenWatercolor(x, y, z) {
-  return `https://stamen-tiles-b.a.ssl.fastly.net/watercolor/${z}/${x}/${y}.png`; // Stamen Wartercolor background
+function EsriNatGeoWorldMap(x, y, z) {
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/${z}/${y}/${x}`; // Esri.NatGeoWorldMap
 }
 
-function StamenTonerBackground(x, y, z) {
-  return `https://stamen-tiles-a.a.ssl.fastly.net/toner-background/${z}/${x}/${y}.png`; // Stamen.TonerBackground
+function OpenTopoMap(x, y, z) {
+  return `https://a.tile.opentopomap.org/${z}/${x}/${y}.png`; // OpenTopoMap
+}
+
+function CartoLight(x, y, z) {
+  return `https://basemaps.cartocdn.com/light_all/${z}/${x}/${y}.png`; // CartoDB.Positron
 }
 
 function USGSUSImagery(x, y, z) {
@@ -103,12 +107,23 @@ function USGSUSImagery(x, y, z) {
 }
 
 function GeoportailFrance(x, y, z) {
-  return `https://wxs.ign.fr/choisirgeoportail/geoportail/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&TILEMATRIX=${z}&TILEROW=${y}&TILECOL=${x}`;
+  return `https://data.geopf.fr/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&TILEMATRIX=${z}&TILEROW=${y}&TILECOL=${x}`;
 }
 
 function NASAGIBSViirsEarthAtNight2012(x, y, z) {
-  return `https://map1.vis.earthdata.nasa.gov/wmts-webmerc/VIIRS_CityLights_2012/default//GoogleMapsCompatible_Level8/${z}/${y}/${x}.jpg`; // NASAGIBS.ViirsEarthAtNight2012
+  return `https://gitc.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_CityLights_2012/default//GoogleMapsCompatible_Level8/${z}/${y}/${x}.jpg`; // NASAGIBS.ViirsEarthAtNight2012
 }
+
+EsriWorldImagery.maxZoom = 19;
+EsriWorldTerrain.maxZoom = 13;
+EsriWorldPhysical.maxZoom = 8;
+EsriWorldShadedRelief.maxZoom = 13;
+EsriNatGeoWorldMap.maxZoom = 16;
+OpenTopoMap.maxZoom = 17;
+CartoLight.maxZoom = 20;
+USGSUSImagery.maxZoom = 16;
+GeoportailFrance.maxZoom = 19;
+NASAGIBSViirsEarthAtNight2012.maxZoom = 8;
 
 function fetchTile(x, y, z, generator = EsriWorldImagery) {
   const img = new Image();
@@ -120,6 +135,9 @@ function fetchTile(x, y, z, generator = EsriWorldImagery) {
 function nextZenElevation(x, y, z) {
   return `https://tile.nextzen.org/tilezen/terrain/v1/512/terrarium/${z}/${x}/${y}.png?api_key=${nextZenKey}`;
 }
+
+nextZenElevation.maxZoom = 14;
+nextZenElevation.tileSize = 512;
 
 function getNextZenHeight(r, g, b) {
   return r * 1 + g / 256 + b / 65536;
@@ -144,9 +162,10 @@ export {
   EsriWorldImagery,
   EsriWorldTerrain,
   EsriWorldPhysical,
-  StamenTerrain,
-  StamenWatercolor,
-  StamenTonerBackground,
+  EsriWorldShadedRelief,
+  EsriNatGeoWorldMap,
+  OpenTopoMap,
+  CartoLight,
   USGSUSImagery,
   GeoportailFrance,
   NASAGIBSViirsEarthAtNight2012,
