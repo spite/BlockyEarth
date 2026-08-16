@@ -157,7 +157,7 @@ function buildGui(app, { onSnapshot, areaLabel, map }) {
   gui.addSeparator();
 
   gui.addButtons("Export", [
-    { label: "Download model", onClick: () => app.bake() },
+    { label: "Download", onClick: () => app.bake() },
     { label: "Snapshot", onClick: onSnapshot },
     {
       label: "Share",
