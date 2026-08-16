@@ -22,8 +22,14 @@ import { GLTFExporter } from "./third_party/GLTFExporter.js";
 import { PLYExporter } from "./third_party/PLYExporter.js";
 import { downloadArrayBuffer, downloadStr } from "./download.js";
 import { getClosestColor } from "./colors.js";
-import { nextZenElevation, latToTile, lngToTile, fetchTile } from "./mapbox.js";
-import { mod } from "./modules/Maf.js";
+import { nextZenElevation } from "./mapbox.js";
+import {
+  createAzimuthal,
+  createMercator,
+  zoomForResolution,
+  MAX_LAT,
+} from "./geo.js";
+import { TileGrid } from "./TileGrid.js";
 
 const Box = "box";
 const RoundedBox = "rounded";
@@ -45,13 +51,19 @@ const c = new Color();
 const sampledColor = new Color();
 const v = new Vector3();
 
+const JITTER = 0.25;
+const MODEL_WIDTH = 10.24;
+
+const geo = { lat: 0, lng: 0 };
+const rgb = [0, 0, 0];
+
 class HeightMap {
-  constructor(width = 1024, height = 1024, step = 2) {
-    this.setSize(width, height);
-    this.step = step;
+  constructor(blocks = 256) {
+    this.setBlocks(blocks);
 
     this.pointCount = 0;
-    this.scale = 150;
+    this.scale = 2;
+    this.span = 10000;
 
     this.loadedTiles = 0;
     this.totalTiles = 0;
@@ -62,37 +74,49 @@ class HeightMap {
     this.quantHeight = NormalHeight;
     this.perfectAlignment = true;
     this.brickPalette = false;
-    this.normalizeHeight = true;
+    this.corrected = true;
 
     this.lat = 0;
     this.lng = 0;
-    this.zoom = 0;
 
     this.bb = new Box3(new Vector3(0, 0, 0), new Vector3(0, 0, 0));
 
-    this.tiles = new Set();
     this.generation = 0;
+    this.colorGrid = null;
+    this.heightGrid = null;
 
     this.onProgress = () => {};
     this.onTilesUnavailable = () => {};
   }
 
-  setSize(width, height) {
-    if (this.width === width && this.height === height) {
-      return;
-    }
+  setBlocks(blocks) {
+    if (this.blocks === blocks) return;
     this.invalidated = true;
-    this.width = width;
-    this.height = height;
-    this.initCanvases();
+    this.blocks = blocks;
   }
 
-  setStep(step) {
-    if (this.step === step) {
-      return;
-    }
+  setArea(lat, lng, span) {
+    if (this.lat === lat && this.lng === lng && this.span === span) return;
     this.invalidated = true;
-    this.step = step;
+    this.lat = lat;
+    this.lng = lng;
+    this.span = span;
+  }
+
+  get spacing() {
+    return this.span / this.blocks;
+  }
+
+  get boxScale() {
+    return MODEL_WIDTH / this.blocks;
+  }
+
+  get metresToWorld() {
+    return this.boxScale / this.spacing;
+  }
+
+  get scaleLat() {
+    return Math.min(MAX_LAT, Math.max(-MAX_LAT, this.lat));
   }
 
   set scale(scale) {
@@ -113,13 +137,13 @@ class HeightMap {
     return this._brickPalette;
   }
 
-  set normalizeHeight(v) {
-    this.invalidated ||= this.normalizeHeight !== v;
-    this._normalizeHeight = v;
+  set corrected(v) {
+    this.invalidated ||= this.corrected !== v;
+    this._corrected = v;
   }
 
-  get normalizeHeight() {
-    return this._normalizeHeight;
+  get corrected() {
+    return this._corrected;
   }
 
   set perfectAlignment(v) {
@@ -138,15 +162,6 @@ class HeightMap {
 
   get quantHeight() {
     return this._quantHeight;
-  }
-
-  set step(step) {
-    this._step = step;
-    this.boxScale = 0.01 * this._step;
-  }
-
-  get step() {
-    return this._step;
   }
 
   set mode(mode) {
@@ -240,63 +255,66 @@ class HeightMap {
   }
 
   filterCircle(v) {
-    const d = v.length();
+    const d = Math.hypot(v.x, v.z);
     return (
-      d < (0.5 * this.width * this.boxScale) / this.step + 0.5 * this.boxScale
+      d < 0.5 * MODEL_WIDTH + 0.5 * this.boxScale
     );
   }
 
   filterHexagon(v) {
     const a = Math.atan2(v.z, v.x);
-    const R = (0.5 * this.width * this.boxScale) / this.step;
+    const R = 0.5 * MODEL_WIDTH;
     const sides = 6;
     const r =
       (R * Math.cos(Math.PI / sides)) /
       Math.cos((2 * Math.asin(Math.sin((sides * a) / 2))) / sides);
-    const d = v.length();
+    const d = Math.hypot(v.x, v.z);
     return d <= r;
   }
 
   generatePoints() {
     const hexagonal = this.mode === Hexagon || this.mode === Capsule;
-    const rowStep = hexagonal ? this.step * (Math.sqrt(3) / 2) : this.step;
+    const cols = this.blocks;
+    const rows = Math.ceil(this.blocks / (hexagonal ? Math.sqrt(3) / 2 : 1));
+    this.allocatePoints(cols * rows);
 
-    const cols = Math.ceil(this.width / this.step);
-    const rows = Math.ceil(this.height / rowStep);
-    const max = cols * rows;
-    if (!this.sampleIndex || this.sampleIndex.length < max) {
-      this.sampleIndex = new Int32Array(max);
-      this.pointX = new Float32Array(max);
-      this.pointZ = new Float32Array(max);
-    }
-
-    const uW = this.width / this.step;
-    const uH = this.height / this.step;
-    const offsetW = 0.5 * ((uW + 1) % 2) * this.step;
-    const offsetH = 0.5 * ((uH + 1) % 2) * this.step;
+    const spacing = this.spacing;
+    const rowSpacing = hexagonal ? spacing * (Math.sqrt(3) / 2) : spacing;
+    const scale = this.metresToWorld;
+    const startEast = -0.5 * (cols - 1) * spacing;
+    const startNorth = 0.5 * (rows - 1) * rowSpacing;
+    const project = this.corrected
+      ? createAzimuthal(this.lat, this.lng)
+      : createMercator(this.lat, this.lng);
 
     let n = 0;
-    let row = 0;
-    for (let y = 0; y < this.height; y += rowStep) {
-      for (let x = 0; x < this.width; x += this.step) {
-        v.set(
-          (x + offsetW - 0.5 * this.width) / this.step,
-          0,
-          (y + offsetH - 0.5 * this.height) / this.step
-        ).multiplyScalar(this.boxScale);
-        if (hexagonal && row % 2 === 1) {
-          v.x += this.boxScale / 2;
-        }
-        if (this.filter(v)) {
-          this.sampleIndex[n] = Math.floor(y) * this.width + Math.floor(x);
-          this.pointX[n] = v.x;
-          this.pointZ[n] = v.z;
-          n++;
-        }
+    for (let row = 0; row < rows; row++) {
+      const north = startNorth - row * rowSpacing;
+      for (let col = 0; col < cols; col++) {
+        let east = startEast + col * spacing;
+        if (hexagonal && row % 2 === 1) east += 0.5 * spacing;
+
+        v.set(east * scale, 0, -north * scale);
+        if (!this.filter(v)) continue;
+
+        project(east, north, geo);
+        this.pointLat[n] = geo.lat;
+        this.pointLng[n] = geo.lng;
+        this.pointX[n] = v.x;
+        this.pointZ[n] = v.z;
+        n++;
       }
-      row++;
     }
     this.pointCount = n;
+  }
+
+  allocatePoints(max) {
+    if (!this.pointX || this.pointX.length < max) {
+      this.pointX = new Float32Array(max);
+      this.pointZ = new Float32Array(max);
+      this.pointLat = new Float64Array(max);
+      this.pointLng = new Float64Array(max);
+    }
   }
 
   disposeMesh() {
@@ -330,179 +348,110 @@ class HeightMap {
     this.mesh.instanceMatrix.needsUpdate = true;
   }
 
-  getHeight(data, x0, y0) {
-    let p;
-    let accum = 0;
-    let total = 0;
-    for (let y = y0; y < y0 + this.step; y++) {
-      for (let x = x0; x < x0 + this.step; x++) {
-        if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
-          p = (y * this.width + x) * 4;
-          if (data[p + 3] === 0) continue;
-          const h = getNextZenHeight(data[p], data[p + 1], data[p + 2]);
-          accum += h;
-          total++;
-        }
-      }
-    }
-    return total === 0 ? NaN : accum / total;
-  }
-
-  getColor(data, x0, y0) {
-    let p;
+  averageSamples(grid, lat, lng, span) {
+    if (!grid || Math.abs(lat) > MAX_LAT) return 0;
+    const gx = grid.lngToPixel(lng);
+    const gy = grid.latToPixel(lat);
+    const half = (span - 1) / 2;
     let r = 0;
     let g = 0;
     let b = 0;
     let total = 0;
-    for (let y = y0; y < y0 + this.step; y++) {
-      for (let x = x0; x < x0 + this.step; x++) {
-        if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
-          p = (y * this.width + x) * 4;
-          if (data[p + 3] === 0) continue;
-          r += data[p];
-          g += data[p + 1];
-          b += data[p + 2];
+    for (let dy = 0; dy < span; dy++) {
+      for (let dx = 0; dx < span; dx++) {
+        if (grid.sample(gx + dx - half, gy + dy - half, rgb)) {
+          r += rgb[0];
+          g += rgb[1];
+          b += rgb[2];
           total++;
         }
       }
     }
-    if (total === 0) {
-      return sampledColor.setRGB(0.5, 0.5, 0.5);
-    }
-    total *= 255;
-    return sampledColor.setRGB(r / total, g / total, b / total);
+    if (total === 0) return 0;
+    rgb[0] = r / total;
+    rgb[1] = g / total;
+    rgb[2] = b / total;
+    return total;
   }
 
-  initCanvases() {
-    const colorCanvas = document.createElement("canvas");
-    colorCanvas.width = this.width;
-    colorCanvas.height = this.height;
-    const colorCtx = colorCanvas.getContext("2d");
-    const heightCanvas = document.createElement("canvas");
-    heightCanvas.width = colorCanvas.width;
-    heightCanvas.height = colorCanvas.height;
-    const heightCtx = heightCanvas.getContext("2d");
-
-    // document.body.append(heightCanvas);
-    heightCanvas.style.position = "absolute";
-    heightCanvas.style.left = "0";
-    heightCanvas.style.top = "0";
-    heightCanvas.style.zIndex = "10";
-    heightCanvas.style.width = "512px";
-    heightCtx.translate(0.5 * heightCanvas.width, 0.5 * heightCanvas.height);
-    heightCtx.imageSmoothingEnabled = false;
-
-    // document.body.append(colorCanvas);
-    colorCanvas.style.position = "absolute";
-    colorCanvas.style.left = "512px";
-    colorCanvas.style.top = "0";
-    colorCanvas.style.zIndex = "10";
-    colorCanvas.style.width = "512px";
-    // colorCanvas.style.border = "1px solid #ff00ff";
-    colorCtx.translate(0.5 * colorCanvas.width, 0.5 * colorCanvas.height);
-
-    this.colorCanvas = colorCanvas;
-    this.colorCtx = colorCtx;
-    this.heightCanvas = heightCanvas;
-    this.heightCtx = heightCtx;
+  sampleSpan(grid, lat) {
+    if (!grid) return 1;
+    const worldMetres = 2 * Math.PI * 6371008.8 * Math.cos((lat * Math.PI) / 180);
+    const gridMetres = worldMetres / grid.size;
+    const blockMetres = this.spacing;
+    return Math.min(8, Math.max(1, Math.round(blockMetres / gridMetres)));
   }
 
-  async populateMap(ctx, generator, lat, lng, zoom) {
-    const maxZoom = generator.maxZoom ?? Infinity;
-    const z = Math.min(zoom, maxZoom);
-    const tileSize = (generator.tileSize ?? 256) * Math.pow(2, zoom - z);
-
-    const tiles = Math.pow(2, z);
-
-    const cx = lngToTile(lng, z);
-    const cy = latToTile(lat, z);
-    const bx = Math.floor(cx);
-    const by = Math.floor(cy);
-    const fx = cx - bx;
-    const fy = cy - by;
-
-    const ox = fx * tileSize;
-    const oy = fy * tileSize;
-    const w0 = Math.ceil((-0.5 * this.width - ox) / tileSize);
-    const w1 = Math.ceil((0.5 * this.width - ox) / tileSize);
-    const h0 = Math.ceil((-0.5 * this.height - oy) / tileSize);
-    const h1 = Math.ceil((0.5 * this.height - oy) / tileSize);
-
-    const requests = [];
-    for (let y = h0; y <= h1; y++) {
-      const ty = by - y;
-      if (ty < 0 || ty >= tiles) continue;
-      for (let x = w0; x <= w1; x++) {
-        requests.push({ tx: mod(bx - x, tiles), ty, x, y });
-      }
+  sampleBounds() {
+    let north = -90;
+    let south = 90;
+    let west = 180;
+    let east = -180;
+    for (let i = 0; i < this.pointCount; i++) {
+      const lat = this.pointLat[i];
+      const lng = this.pointLng[i];
+      if (lat > north) north = lat;
+      if (lat < south) south = lat;
+      if (lng < west) west = lng;
+      if (lng > east) east = lng;
     }
-
-    this.totalTiles += requests.length;
-
-    const generation = this.generation;
-    let failed = 0;
-
-    await Promise.all(
-      requests.map(async ({ tx, ty, x, y }) => {
-        const img = fetchTile(tx, ty, z, generator);
-        this.tiles.add(img);
-        try {
-          await img.decode();
-          if (generation !== this.generation) return;
-          this.loadedTiles++;
-          this.onProgress((this.loadedTiles * 100) / this.totalTiles);
-          const dx = Math.round(-(x + fx) * tileSize);
-          const dy = Math.round(-(y + fy) * tileSize);
-          ctx.drawImage(img, dx, dy, tileSize, tileSize);
-        } catch (e) {
-          failed++;
-          console.warn(`Could not load tile ${img.src}`, e);
-        } finally {
-          this.tiles.delete(img);
-        }
-      })
-    );
-
-    return { requested: requests.length, failed };
+    const wrap = north > MAX_LAT || south < -MAX_LAT || east - west > 180;
+    return { north, south, west, east, wrap };
   }
 
   cancel() {
     this.generation++;
-    for (const tile of this.tiles) {
-      tile.src = "";
-    }
-    this.tiles.clear();
+    if (this.colorGrid) this.colorGrid.cancel();
+    if (this.heightGrid) this.heightGrid.cancel();
   }
 
-  clearCanvases() {
-    const x = -0.5 * this.width;
-    const y = -0.5 * this.height;
-    this.colorCtx.clearRect(x, y, this.width, this.height);
-    this.heightCtx.clearRect(x, y, this.width, this.height);
-  }
-
-  async populateMaps(lat = this.lat, lng = this.lng, zoom = this.zoom) {
+  async populateMaps(lat = this.lat, lng = this.lng, span = this.span) {
     this.cancel();
-    this.clearCanvases();
-    this.lat = lat;
-    this.lng = lng;
-    this.zoom = zoom;
+    this.setArea(lat, lng, span);
+    this.invalidate();
+    this.generatePoints();
+
+    const bounds = this.sampleBounds();
+    this.colorGrid = new TileGrid(this.generator, this.zoomFor(this.generator));
+    this.heightGrid = new TileGrid(
+      nextZenElevation,
+      this.zoomFor(nextZenElevation)
+    );
+
     this.loadedTiles = 0;
-    this.totalTiles = 0;
+    this.totalTiles =
+      this.colorGrid.tilesFor(bounds).size +
+      this.heightGrid.tilesFor(bounds).size;
+    const onTile = () => {
+      this.loadedTiles++;
+      this.onProgress((this.loadedTiles * 100) / this.totalTiles);
+    };
+
     const [color, elevation] = await Promise.all([
-      this.populateMap(this.colorCtx, this.generator, lat, lng, zoom),
-      this.populateMap(this.heightCtx, nextZenElevation, lat, lng, zoom - 1),
+      this.colorGrid.load(bounds, { onTile }),
+      this.heightGrid.load(bounds, { onTile }),
     ]);
+
     this.loadedTiles = 0;
     this.totalTiles = 0;
     this.onProgress(0);
+
     if (color.requested > 0 && color.failed === color.requested) {
       this.onTilesUnavailable("color");
-    } else if (elevation.requested > 0 && elevation.failed === elevation.requested) {
+    } else if (
+      elevation.requested > 0 &&
+      elevation.failed === elevation.requested
+    ) {
       this.onTilesUnavailable("elevation");
     }
     this.invalidate();
-    this.processMaps();
+  }
+
+  zoomFor(generator) {
+    const tileSize = generator.tileSize ?? 256;
+    const wanted = zoomForResolution(this.scaleLat, this.spacing, tileSize);
+    const max = generator.maxZoom ?? 22;
+    return Math.max(0, Math.min(max, Math.ceil(wanted)));
   }
 
   processMaps() {
@@ -510,80 +459,82 @@ class HeightMap {
     if (!this.invalidated) return;
     this.bb.makeEmpty();
     this.invalidated = false;
-    const colorCtx = this.colorCtx;
-    const heightCtx = this.heightCtx;
-    const colorData = colorCtx.getImageData(
-      0,
-      0,
-      colorCtx.canvas.width,
-      colorCtx.canvas.height
-    );
-    const heightData = heightCtx.getImageData(
-      0,
-      0,
-      heightCtx.canvas.width,
-      heightCtx.canvas.height
-    );
 
     const count = this.pointCount;
     if (!this.sampledHeights || this.sampledHeights.length < count) {
       this.sampledHeights = new Float32Array(count);
     }
     const sampled = this.sampledHeights;
+    const heightSpan = this.sampleSpan(this.heightGrid, this.lat);
+    const colorSpan = this.sampleSpan(this.colorGrid, this.lat);
 
     let min = Number.MAX_SAFE_INTEGER;
     let max = Number.MIN_SAFE_INTEGER;
     for (let i = 0; i < count; i++) {
-      const index = this.sampleIndex[i];
-      const h = this.getHeight(
-        heightData.data,
-        index % this.width,
-        Math.floor(index / this.width)
-      );
+      let h = NaN;
+      if (
+        this.averageSamples(
+          this.heightGrid,
+          this.pointLat[i],
+          this.pointLng[i],
+          heightSpan
+        )
+      ) {
+        h = getNextZenHeight(rgb[0], rgb[1], rgb[2]);
+      }
       sampled[i] = h;
       if (h < min) min = h;
       if (h > max) max = h;
     }
-    const range = max > min ? max - min : 1;
     if (min > max) min = 0;
+
+    const metresToWorld = this.metresToWorld;
+    const exaggeration = this.verticalScale * metresToWorld * 256;
+    const base = 0.01;
+    const unit = this.boxScale;
 
     const tmp = new Vector3();
     const heights = this.mesh.geometry.attributes.height.array;
     for (let i = 0; i < count; i++) {
-      const index = this.sampleIndex[i];
-      const sx = index % this.width;
-      const sy = Math.floor(index / this.width);
-      let h = sampled[i];
-      if (Number.isNaN(h)) h = min;
-      if (this._normalizeHeight) {
-        h = ((h - min) / range) * this.verticalScale;
-      } else {
-        h = (h - min) * this.verticalScale;
-      }
-      h /= this.step;
+      const raw = sampled[i];
+      let h = ((Number.isNaN(raw) ? min : raw) - min) * exaggeration;
+
       switch (this._quantHeight) {
         case NormalHeight:
           break;
         case BlockHeight:
-          h = Math.floor(h);
+          h = Math.floor(h / unit) * unit;
           break;
         case HalfBlockHeight:
-          h = Math.floor(h / 0.5) * 0.5;
+          h = Math.floor(h / (0.5 * unit)) * 0.5 * unit;
           break;
         case QuarterBlockHeight:
-          h = Math.floor(h / 0.25) * 0.25;
+          h = Math.floor(h / (0.25 * unit)) * 0.25 * unit;
           break;
       }
-      h = 1 / this.step + h;
+      h += base;
       if (!this._perfectAlignment) {
-        h += 0.005 - 0.01 * Math.random();
+        h += (0.5 - Math.random()) * JITTER * unit;
       }
 
-      tmp.set(this.pointX[i], h * this.boxScale, this.pointZ[i]);
+      tmp.set(this.pointX[i], h, this.pointZ[i]);
       this.bb.expandByPoint(tmp);
-      const c = this.getColor(colorData.data, sx, sy);
 
-      heights[i] = h * this.boxScale;
+      if (
+        this.averageSamples(
+          this.colorGrid,
+          this.pointLat[i],
+          this.pointLng[i],
+          colorSpan
+        )
+      ) {
+        sampledColor.setRGB(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255);
+      } else {
+        sampledColor.setRGB(0.5, 0.5, 0.5);
+      }
+      const c = sampledColor;
+
+      heights[i] = h;
       if (this.brickPalette) {
         this.mesh.setColorAt(i, getClosestColor(c));
       } else {
@@ -635,9 +586,9 @@ class HeightMap {
   }
 
   get exportName() {
-    return `blocky-earth-${this.lat.toFixed(5)}-${this.lng.toFixed(5)}-${
-      this.zoom
-    }`;
+    return `blocky-earth-${this.lat.toFixed(5)}-${this.lng.toFixed(5)}-${Math.round(
+      this.span
+    )}m`;
   }
 
   bake() {

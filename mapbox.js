@@ -17,28 +17,6 @@ function latToTile(l, z) {
 
 // https://leaflet-extras.github.io/leaflet-providers/preview/
 
-function tileToLng(x, z) {
-  return (x / Math.pow(2, z)) * 360 - 180;
-}
-
-function tileToLat(y, z) {
-  const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, z);
-  return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
-}
-
-function mapBounds(lat, lng, zoom, width, height) {
-  const cx = lngToTile(lng, zoom);
-  const cy = latToTile(lat, zoom);
-  const halfW = width / 512;
-  const halfH = height / 512;
-  return {
-    north: tileToLat(cy - halfH, zoom),
-    south: tileToLat(cy + halfH, zoom),
-    west: tileToLng(cx - halfW, zoom),
-    east: tileToLng(cx + halfW, zoom),
-  };
-}
-
 function EsriWorldImagery(x, y, z) {
   return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`; // Esri.WorldImagery
 }
@@ -148,7 +126,6 @@ function getNextZenHeight(r, g, b) {
 export {
   lngToTile,
   latToTile,
-  mapBounds,
   getNextZenHeight,
   fetchTile,
   EsriWorldImagery,

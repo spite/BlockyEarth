@@ -69,7 +69,9 @@ function makePerspectiveJitter(
 }
 
 function updateProjectionMatrixJitter(camera, size) {
-  const [offsetX, offsetY] = jitterTable[jitterPointer];
+  const [tableX, tableY] = jitterTable[jitterPointer];
+  const offsetX = tableX - 0.5;
+  const offsetY = tableY - 0.5;
 
   var near = camera.near,
     top = (near * Math.tan(MathUtils.DEG2RAD * 0.5 * camera.fov)) / camera.zoom,
@@ -107,11 +109,16 @@ function updateProjectionMatrixJitter(camera, size) {
       size.y
     );
   } else {
-    camera.left -= offsetX / size.x;
-    camera.top -= offsetY / size.y;
-    camera.right -= offsetX / size.x;
-    camera.bottom -= offsetY / size.y;
-    camera.updateProjectionMatrix();
+    const dx = (offsetX * (camera.right - camera.left)) / size.x;
+    const dy = (offsetY * (camera.top - camera.bottom)) / size.y;
+    camera.projectionMatrix.makeOrthographic(
+      camera.left + dx,
+      camera.right + dx,
+      camera.top + dy,
+      camera.bottom + dy,
+      camera.near,
+      camera.far
+    );
   }
 
   camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();

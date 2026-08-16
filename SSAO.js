@@ -42,6 +42,7 @@ uniform mat4 modelMatrix;
 uniform vec3 lightPos;
 uniform mat4 shadowProjectionMatrix;
 uniform mat4 shadowViewMatrix;
+uniform float shadowNormalBias;
 
 out vec3 vPosition;
 out vec3 vColor;
@@ -76,7 +77,9 @@ void main() {
   vPosition = mvPosition.xyz / mvPosition.w;
   gl_Position = projectionMatrix * mvPosition;
 
-  vShadowCoord = biasMatrix * shadowProjectionMatrix * shadowViewMatrix * vMPosition;
+  vec3 shadowNormal = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);
+  vec4 shadowPos = vMPosition + vec4(shadowNormal * shadowNormalBias, 0.);
+  vShadowCoord = biasMatrix * shadowProjectionMatrix * shadowViewMatrix * shadowPos;
 }`;
 
 const fragmentShader = `precision highp float;
@@ -87,12 +90,12 @@ layout(location = 2) out vec4 normal;
 
 uniform float near;
 uniform float far;
-uniform sampler2D matcap;
 uniform sampler2D shadowMap;
 uniform mat3 normalMatrix;
 uniform vec3 cameraPosition;
 uniform float time;
 uniform vec3 backgroundColor;
+uniform float sampleIndex;
 
 in vec3 vPosition;
 in vec3 lDir;
@@ -107,7 +110,7 @@ float linearizeDepth(float z) {
 
 ${hsl}
 
-const float bias = 0.00005;
+const float bias = 0.0002;
 
 float random(vec4 seed4){
   float dot_product = dot(seed4, vec4(12.9898,78.233,45.164,94.673));
@@ -166,15 +169,20 @@ void main() {
 
   vec2 shadowResolution = vec2(textureSize(shadowMap, 0));
 
-  float shadow = 0.;
+  float shadow = 1.;
 	vec3 shadowCoord = vShadowCoord.xyz / vShadowCoord.w;
-  if( diffuse > 0. && shadowCoord.x >= 0. || shadowCoord.x <= 1. || shadowCoord.y >= 0. || shadowCoord.y <= 1. ) {
+  if( diffuse > 0. && shadowCoord.x >= 0. && shadowCoord.x <= 1. && shadowCoord.y >= 0. && shadowCoord.y <= 1. && shadowCoord.z <= 1. ) {
+    float ang = random(gl_FragCoord.xy + vec2(sampleIndex * 17.13)) * 6.2831853;
+    float cs = cos(ang);
+    float sn = sin(ang);
+    mat2 rot = mat2(cs, -sn, sn, cs);
+    shadow = 0.;
     for(int i=0; i<8; i++) {
-      shadow += sampleVisibility(shadowCoord + vec3(jitterTable[i] / shadowResolution, 0.));
+      vec2 tap = rot * (jitterTable[i] - 0.5) * 4.0 / shadowResolution;
+      shadow += sampleVisibility(shadowCoord + vec3(tap, 0.));
     }
-    // shadow += sampleVisibility(shadowCoord);
+    shadow /= 8.;
   }
-  shadow /= 8.;
   
   vec3 e = normalize(-vPosition.xyz);
   vec3 h = normalize(ld + e);
@@ -210,6 +218,9 @@ uniform float radius;
 uniform vec2 attenuation;
 uniform float time;
 uniform sampler2D shadow;
+uniform vec3 aoColor;
+uniform float aoSaturation;
+uniform float saturation;
 
 in vec2 vUv;
 
@@ -301,16 +312,12 @@ void main() {
 
   vec4 color = texture(colorMap, vUv);
   color.rgb = screen(color.rgb, acCol.rgb, .1);
-  // color.rgb = softLight(color.rgb, acCol.rgb * occlusion, 1.);
-	vec3 hsl = rgb2hsv(color.rgb);
-	hsl.z *=  (1.-occlusion);
-	hsl.y *= .5 + .5 * (1.-occlusion);
-  hsl.z = clamp(hsl.z, 0., 1.);
-  hsl.y = clamp(hsl.y, 0., 1.);
-	vec3 finalColor = czm_saturation(hsv2rgb(hsl), 1.5 + occlusion);
-  // vec4 finalColor = color;
-  
-	fragColor = vec4(finalColor.rgb, color.a);
+
+  vec3 base = czm_saturation(color.rgb, saturation);
+  vec3 shaded = czm_saturation(base * aoColor, 1. + aoSaturation);
+  vec3 finalColor = mix(base, shaded, occlusion);
+
+	fragColor = vec4(clamp(finalColor, 0., 1.), color.a);
   
 }`;
 
@@ -365,7 +372,10 @@ class SSAO {
       texture.type = FloatType;
     }
 
-    this.shadowFBO = getFBO(2048, 2048, {});
+    this.shadowFBO = getFBO(2048, 2048, {
+      minFilter: NearestFilter,
+      magFilter: NearestFilter,
+    });
     this.depthMaterial = new RawShaderMaterial({
       uniforms: {
         near: { value: 0 },
@@ -373,7 +383,6 @@ class SSAO {
       },
       vertexShader: vertexShader,
       fragmentShader: depthFragmentShader,
-      // side: BackSide,
       glslVersion: GLSL3,
     });
 
@@ -386,6 +395,8 @@ class SSAO {
         far: { value: 0 },
         near: { value: 0 },
         shadowMap: { value: this.shadowFBO.texture },
+        sampleIndex: { value: 0 },
+        shadowNormalBias: { value: 0 },
       },
       vertexShader,
       fragmentShader,
@@ -420,6 +431,9 @@ class SSAO {
         attenuation: { value: new Vector2(0.5, 5).multiplyScalar(s) },
         time: { value: 0 },
         shadow: { value: this.shadowFBO.texture },
+        aoColor: { value: new Color(0x51586b) },
+        aoSaturation: { value: 0.15 },
+        saturation: { value: 1.2 },
       },
       blending: AdditiveBlending,
       vertexShader: orthoVs,
@@ -463,12 +477,14 @@ class SSAO {
   updateShadow(renderer, scene, camera) {
     camera.updateMatrixWorld();
     camera.updateProjectionMatrix();
-    size.set(this.shadowFBO.width, this.shadowFBO.height).multiplyScalar(1 / 5);
+    size.set(this.shadowFBO.width, this.shadowFBO.height).multiplyScalar(1 / 14);
     updateProjectionMatrixJitter(camera, size);
     this.shader.uniforms.shadowProjectionMatrix.value.copy(
       camera.projectionMatrix
     );
     this.shader.uniforms.shadowViewMatrix.value.copy(camera.matrixWorldInverse);
+    this.shader.uniforms.shadowNormalBias.value =
+      (1.5 * (camera.right - camera.left)) / this.shadowFBO.width;
 
     this.depthMaterial.uniforms.near.value = camera.near;
     this.depthMaterial.uniforms.far.value = camera.far;
@@ -515,6 +531,8 @@ class SSAO {
     this.shader.uniforms.far.value = camera.far;
 
     this.ssaoShader.uniforms.time.value = performance.now() / 1000;
+    this.shader.uniforms.sampleIndex.value =
+      this.accumPass.shader.uniforms.samples.value;
 
     renderer.setRenderTarget(this.renderTarget);
     renderer.setClearColor(this.backgroundColor, 1);

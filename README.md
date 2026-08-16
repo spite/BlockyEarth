@@ -8,21 +8,60 @@ and lit with screen-space ambient occlusion.
 
 ## How it works
 
-Two maps are fetched for the chosen location and drawn onto canvases of the same
-size, covering the same patch of ground:
+Two sets of tiles are fetched for the chosen location:
 
 - a **colour map**, from whichever tile provider is selected
 - an **elevation map**, from [Nextzen](https://www.nextzen.org/) terrarium tiles,
   which pack height into the RGB channels
 
-`HeightMap` samples both on a square or hexagonal grid — averaging a `block size`
-square of pixels per block — and drives a single `InstancedMesh`. The vertex
+`HeightMap` samples both on a square or hexagonal grid — averaging a small
+neighbourhood of pixels per block — and drives a single `InstancedMesh`. The vertex
 shader keeps each block's base on the ground and raises only its top, so blocks
 are columns rather than floating cubes.
 
-Providers stop at different zoom levels (Nextzen's 512px terrarium tiles end at
-14). Past a provider's limit the deepest available tile is requested and
-magnified, so the map still covers the right ground instead of coming back empty.
+## Geometry
+
+The model is always flat. **Projection** switches how blocks are laid out on it.
+
+**Mercator** takes the tile pixels as they come: one block per `block size`
+square of the source. Simple, and what the tiles natively are — but Web Mercator
+stretches with latitude, so the further from the equator the more the ground is
+exaggerated, and the scale drifts across the map itself.
+
+**Corrected** reprojects. Blocks sit on a grid uniform in **metres on the
+ground**, and each one converts its position through an azimuthal equidistant
+projection centred on the target to get a latitude and longitude, then samples
+the tiles there. The tiles get resampled, so the result reads as if looked at
+straight down rather than through Mercator.
+
+Azimuthal is what makes the poles work. A local east/north frame has to divide
+the east offset by `cos(lat)`, which runs to infinity at ±90° — centring on a
+pole is impossible in that scheme. Azimuthal equidistant has no singularity
+there, so you can point at the south pole and see the continent all the way
+around it.
+
+Sampling goes straight to tiles rather than through a canvas. A polar view spans
+every longitude, which no Mercator rectangle can hold, so `TileGrid` keeps the
+decoded tiles it needs and is asked for a latitude and longitude.
+
+Measured spread in ground metres per block across a map, north edge to south:
+
+| | Mercator | Corrected |
+|---|---|---|
+| Barcelona z10 | 1.61% | 0.18% |
+| Tromsø z8 | 9.49% | 0.09% |
+| Antarctica z6 | 45.95% | 0.66% |
+
+Two limits worth knowing. Web Mercator stops at ±85.0511°, so a circle about
+550 km across at each pole has no tiles at any zoom — it shows up as a clean hole
+in the middle of a polar view. And the ground scale is taken from the source
+resolution at the centre latitude, which collapses toward the poles, so it is
+clamped at 85° there; zoom out to bring the whole continent into frame.
+
+Elevation is metric in both projections, so **Exaggeration is a real ratio: 1x is
+the world in true proportion**. Teide at zoom 13 comes out 2913 m of relief
+across a 17 km map, 17% of its own width, which is what it is on the ground.
+2 to 5x is the usual relief-map look.
 
 ## Running it
 
@@ -35,13 +74,25 @@ python3 -m http.server 8000
 There is no build step. Dependencies are either vendored in `third_party/` or
 resolved through the import map in `index.html`.
 
+## Choosing an area
+
+Whatever the picker shows is what gets built. Pan and zoom it to frame the patch
+you want; there is no zoom level to line up and no rectangle to drag. **Detail**
+sets how many blocks go across the model, and the readout under it gives the
+ground area and metres per block. The tile zoom is worked out from those two —
+the deepest zoom whose pixels are no coarser than one block — so it never needs
+to be chosen.
+
+The picker zooms continuously rather than in doubling steps, so framing lands
+where you put it.
+
 ## URLs
 
-The location lives in the hash, the look in the query string, so a link carries
-both:
+The area lives in the hash as `latitude,longitude,span-in-metres`, the look in
+the query string, so a link carries both:
 
 ```
-index.html?shape=brick&crop=circle&verticalScale=400&palette=true#28.24038,-16.62999,12
+index.html?shape=brick&crop=circle&verticalScale=4&palette=true#28.24038,-16.62999,15000
 ```
 
 Only settings that differ from the defaults appear. Settings also persist in
@@ -50,15 +101,15 @@ Only settings that differ from the defaults appear. Settings also persist in
 ## Tile proxy (optional)
 
 Some tile hosts get blocked in the browser by privacy extensions. Privacy Badger
-blocks `khm1.google.com` because it sets third-party cookies, which shows up in
-the console as `net::ERR_BLOCKED_BY_CLIENT` and leaves the map grey. Nothing
-server-side is wrong when that happens, and the site cannot detect it beyond
-noticing that every tile failed.
+blocks `khm1.google.com` on domain reputation — none of the tile endpoints set a
+cookie — which shows up in the console as `net::ERR_BLOCKED_BY_CLIENT` and leaves
+the map grey. Nothing server-side is wrong when that happens, and the site cannot
+detect it beyond noticing that every tile failed.
 
 `worker/` is a Cloudflare Worker that fetches tiles from an allowlist of hosts
 and serves them from your own domain, which sidesteps the block. It strips
-`Set-Cookie` from upstream responses, so the proxy does not become a tracking
-vector itself and does not attract the same heuristics.
+`Set-Cookie` from upstream responses so the proxy cannot become a tracking vector
+itself, and caches at the edge.
 
 ```sh
 cd worker
@@ -93,6 +144,8 @@ all documented public services.
 | `BlockyEarth.js` | owns the model and the scene graph |
 | `gui.js` | the [guspira](https://github.com/spite/guspira) settings panel |
 | `HeightMap.js` | tile fetching, sampling, mesh building, export |
+| `geo.js` | the projections blocks are placed through |
+| `TileGrid.js` | decoded tiles, sampled by latitude and longitude |
 | `SSAO.js` | ambient occlusion, shadows, and the accumulation buffer |
 | `mapbox.js` | tile providers and their zoom limits |
 | `deps/`, `modules/` | small shared helpers |
@@ -106,5 +159,6 @@ all documented public services.
 
 Built with [three.js](https://threejs.org/). Tiles from Google, Esri, USGS,
 OpenTopoMap, CartoDB, IGN and NASA GIBS; elevation from Nextzen; the location
-picker is [Leaflet](https://leafletjs.com/). Brick palette from
-[Jenny's Crayon Collection](http://www.jennyscrayoncollection.com/2021/06/all-current-lego-colors.html).
+picker is [Leaflet](https://leafletjs.com/). Brick palette is every
+non-transparent, non-metallic LEGO colour with at least 200 known parts, from
+[Rebrickable](https://rebrickable.com/downloads/)'s colour data.

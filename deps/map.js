@@ -1,6 +1,5 @@
 import { LitElement, html } from "lit";
 import { mapBoxKey } from "../config.js";
-import "./button.js";
 
 const locations = [
   { lat: 51.50811493725607, lng: -0.1280283413492745 },
@@ -15,12 +14,6 @@ const locations = [
 ];
 
 class MapBrowser extends LitElement {
-  static get properties() {
-    return {
-      collapsed: { type: Boolean },
-    };
-  }
-
   constructor() {
     super();
     this.lat = 0;
@@ -76,7 +69,10 @@ class MapBrowser extends LitElement {
     await this.loadResources();
     this.onReady();
     const mapDiv = this.shadowRoot.querySelector("#map");
-    this.map = L.map(mapDiv).setView([51.505, -0.09], 13);
+    this.map = L.map(mapDiv, { zoomSnap: 0, zoomDelta: 0.35 }).setView(
+      [51.505, -0.09],
+      13
+    );
 
     L.tileLayer(
       "https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}",
@@ -92,23 +88,13 @@ class MapBrowser extends LitElement {
     ).addTo(this.map);
 
     this.map.on("click", (e) => this.onMapClick(e));
-    this.map.on("zoomend", () => {
-      if (!this.adjustingView) {
-        this.selectionZoom = this.map.getZoom();
-      }
+    this.map.on("moveend", () => {
+      if (!this.adjustingView) this.onViewChange();
     });
-    this.selectionZoom = this.map.getZoom();
   }
 
   get zoom() {
     return this.map.getZoom();
-  }
-
-  setSelectionZoom(zoom) {
-    this.selectionZoom = zoom;
-    this.adjustingView = true;
-    this.map.setZoom(zoom, { animate: false });
-    this.adjustingView = false;
   }
 
   onMapClick(e) {
@@ -120,7 +106,68 @@ class MapBrowser extends LitElement {
     this.lng = lng;
     this.removeMarker();
     this.marker = L.marker([lat, lng]).addTo(this.map);
+    this.suppressView();
     this.map.panTo([lat, lng], { animate: false });
+  }
+
+  onViewChange() {}
+
+  suppressView() {
+    this.adjustingView = true;
+    clearTimeout(this.suppressTimer);
+    this.suppressTimer = setTimeout(() => {
+      this.adjustingView = false;
+    }, 0);
+  }
+
+  areaCorners(area) {
+    const half = area.span / 2;
+    const dLat = (half / 6371008.8) * (180 / Math.PI);
+    const dLng =
+      (half / (6371008.8 * Math.cos((area.lat * Math.PI) / 180))) *
+      (180 / Math.PI);
+    return [
+      [area.lat - dLat, area.lng - dLng],
+      [area.lat + dLat, area.lng + dLng],
+    ];
+  }
+
+  frameArea(area) {
+    if (!this.map || !area) return;
+    this.lat = area.lat;
+    this.lng = area.lng;
+    this.suppressView();
+    this.map.fitBounds(this.areaCorners(area), { animate: false });
+    this.removeMarker();
+    this.marker = L.marker([area.lat, area.lng]).addTo(this.map);
+    this.showArea(area);
+  }
+
+  captureArea() {
+    if (!this.map) return null;
+    const bounds = this.map.getBounds();
+    const centre = bounds.getCenter();
+    const width = this.map
+      .distance(
+        [centre.lat, bounds.getWest()],
+        [centre.lat, bounds.getEast()]
+      );
+    const height = this.map.distance(
+      [bounds.getSouth(), centre.lng],
+      [bounds.getNorth(), centre.lng]
+    );
+    return { lat: centre.lat, lng: centre.lng, span: Math.min(width, height) };
+  }
+
+  showArea(area) {
+    if (!this.map || !area) return;
+    const [sw, ne] = this.areaCorners(area);
+    this.setFootprint({
+      south: sw[0],
+      west: sw[1],
+      north: ne[0],
+      east: ne[1],
+    });
   }
 
   setFootprint(bounds, fit = false) {
@@ -170,15 +217,6 @@ class MapBrowser extends LitElement {
     this.dispatchEvent(e);
   }
 
-  async onChange(e) {
-    await this.search(e.target.value);
-  }
-
-  async onSearch(e) {
-    const el = this.shadowRoot.querySelector("#search");
-    await this.search(el.value);
-  }
-
   async search(str) {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${str}`;
     const res = await fetch(url, { mode: "cors" });
@@ -215,40 +253,14 @@ class MapBrowser extends LitElement {
     this.addMarker(location.lat, location.lng);
   }
 
-  onInput(e) {
-    e.stopPropagation();
-    e.preventDefault();
-    return false;
-  }
-
-  onCollapse() {
-    this.collapsed = !this.collapsed;
-  }
-
   render() {
     return html`
       <style>
         :host {
           display: block;
           position: relative;
-          font: inherit;
           overflow: hidden;
-        }
-        #container {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5em;
-          justify-content: flex-end;
-        }
-        #map-container {
-          position: relative;
-          flex: 1 1 400px;
-          border-radius: 5px;
-          overflow: hidden;
-        }
-        #map-container.collapsed {
-          height: 0;
-          flex: 0;
+          border-radius: 4px;
         }
         #map {
           position: absolute;
@@ -257,41 +269,6 @@ class MapBrowser extends LitElement {
           right: 0;
           bottom: 0;
         }
-        #tools {
-          display: flex;
-          flex-direction: row;
-        }
-        #tools div {
-          display: flex;
-        }
-        #tools div:first-child {
-          flex: 1;
-          margin: 0 0.5em 0 0;
-        }
-        input {
-          padding: 0.5em 0.5em;
-          border: 1px solid #111;
-          outline: none;
-          border-radius: 0.25em;
-          flex: 1;
-          margin-right: 0.5em;
-        }
-        .collapse-bar {
-          justify-content: flex-end;
-          display: flex;
-        }
-        @media (max-width: 600px) {
-          #tools {
-            flex-direction: column;
-          }
-          #tools div:first-child {
-            flex: 1;
-            margin: 0 0 0.5em 0;
-          }
-          #tools div:nth-child(2) {
-            justify-content: end;
-          }
-        }
       </style>
       <link
         rel="stylesheet"
@@ -299,41 +276,9 @@ class MapBrowser extends LitElement {
         integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
         crossorigin=""
       />
-      <div id="container">
-        <div class="collapse-bar">
-          <x-button @click="${this.onCollapse}"
-            >${this.collapsed ? "Expand ▲" : "Collapse ▼"}</x-button
-          >
-        </div>
-        <div id="map-container" class="${this.collapsed ? "collapsed" : ""}">
-          <div id="map"></div>
-        </div>
-        <div id="tools">
-          <div>
-            <input
-              placeholder="Search..."
-              type="text"
-              id="search"
-              autocomplete="off"
-              @input=${this.onInput}
-              @change=${this.onChange}
-            />
-            <x-button class="btn" class="search" @click=${this.onSearch}
-              >Search</x-button
-            >
-          </div>
-          <div>
-            <x-button class="btn" left @click=${this.onLocation}
-              >My location</x-button
-            >
-            <x-button class="btn" right @click=${this.randomLocation}>
-              Random location
-            </x-button>
-          </div>
-          <div></div>
-        </div>
-      </div>
+      <div id="map"></div>
     `;
   }
 }
+
 customElements.define("map-browser", MapBrowser);

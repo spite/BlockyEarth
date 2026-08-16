@@ -16,7 +16,6 @@ import {
   USGSUSImagery,
   GeoportailFrance,
   NASAGIBSViirsEarthAtNight2012,
-  mapBounds,
 } from "./mapbox.js";
 import { coalesce } from "./deps/coalesce.js";
 
@@ -38,24 +37,7 @@ const generators = {
   "NASA at night 2012": NASAGIBSViirsEarthAtNight2012,
 };
 
-const resolutions = [
-  "512x512",
-  "1024x1024",
-  "2048x2048",
-  "256x512",
-  "512x1024",
-  "1024x2048",
-  "512x256",
-  "1024x512",
-  "2048x1024",
-];
-
-const blockSizes = [1, 2, 4, 8, 16, 32, 64, 128];
-
-function parseResolution(value) {
-  const [width, height] = value.split("x").map(Number);
-  return { width, height };
-}
+const detailLevels = [64, 128, 256, 512, 1024];
 
 class BlockyEarth extends EventTarget {
   constructor(params) {
@@ -63,8 +45,7 @@ class BlockyEarth extends EventTarget {
     this.params = params;
     this.group = new Group();
 
-    const { width, height } = parseResolution(params.mapSize());
-    this.heightMap = new HeightMap(width, height, params.blockSize());
+    this.heightMap = new HeightMap(params.blocks());
     this.heightMap.onProgress = (progress) => {
       this.dispatchEvent(new CustomEvent("progress", { detail: { progress } }));
     };
@@ -86,8 +67,6 @@ class BlockyEarth extends EventTarget {
       this.group.add(this.heightMap.mesh);
       this.changed();
     });
-
-    this.rebuild();
   }
 
   get material() {
@@ -102,14 +81,9 @@ class BlockyEarth extends EventTarget {
     return this.heightMap.bb;
   }
 
-  boundsFor(lat, lng, zoom) {
-    const { width, height } = this.heightMap;
-    return mapBounds(lat, lng, zoom, width, height);
-  }
-
-  get bounds() {
-    const { lat, lng, zoom } = this.heightMap;
-    return this.boundsFor(lat, lng, zoom);
+  get area() {
+    const { lat, lng, span, spacing, blocks } = this.heightMap;
+    return { lat, lng, span, spacing, blocks };
   }
 
   changed() {
@@ -123,7 +97,7 @@ class BlockyEarth extends EventTarget {
     heightMap.crop = p.crop();
     heightMap.quantHeight = p.quantize();
     heightMap.scale = p.verticalScale();
-    heightMap.normalizeHeight = p.normalize();
+    heightMap.corrected = p.projection() === "corrected";
     heightMap.perfectAlignment = p.align();
     heightMap.brickPalette = p.palette();
     heightMap.generator = generators[p.tiles()];
@@ -135,9 +109,7 @@ class BlockyEarth extends EventTarget {
   }
 
   async refetch() {
-    const { width, height } = parseResolution(this.params.mapSize());
-    this.heightMap.setSize(width, height);
-    this.heightMap.setStep(this.params.blockSize());
+    this.heightMap.setBlocks(this.params.blocks());
     this.applyParams();
     await googleMapsReady;
     await this.heightMap.populateMaps();
@@ -145,9 +117,9 @@ class BlockyEarth extends EventTarget {
     this.rebuild();
   }
 
-  async load(lat, lng, zoom) {
+  async load(lat, lng, span) {
     await googleMapsReady;
-    await this.heightMap.populateMaps(lat, lng, zoom);
+    await this.heightMap.populateMaps(lat, lng, span);
     this.rebuild();
   }
 
@@ -156,4 +128,4 @@ class BlockyEarth extends EventTarget {
   }
 }
 
-export { BlockyEarth, generators, resolutions, blockSizes };
+export { BlockyEarth, generators, detailLevels };

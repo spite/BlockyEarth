@@ -1,6 +1,5 @@
 import "./deps/map.js";
 import "./deps/snackbar.js";
-import "./deps/tweet-button.js";
 import "./deps/progress.js";
 import {
   WebGLRenderer,
@@ -13,6 +12,7 @@ import { OrbitControls } from "./third_party/OrbitControls.js";
 import { SSAO } from "./SSAO.js";
 import { BlockyEarth } from "./BlockyEarth.js";
 import { buildGui, createGuiParams, syncQuery } from "./gui.js";
+import { signal } from "guspira";
 
 const ssao = new SSAO();
 
@@ -53,10 +53,21 @@ const app = new BlockyEarth(params);
 app.material = ssao.shader;
 scene.add(app.group);
 
-buildGui(app, { onSnapshot: () => capture() });
+const areaLabel = signal("");
+
+function updateAreaLabel() {
+  const { span, spacing } = app.area;
+  const km = span / 1000;
+  const size = km >= 10 ? km.toFixed(0) : km.toFixed(2);
+  const per = spacing >= 1000 ? `${(spacing / 1000).toFixed(1)} km` : `${spacing.toFixed(0)} m`;
+  areaLabel.set(`${size} × ${size} km · ${per}/block`);
+}
+
+buildGui(app, { onSnapshot: () => capture(), areaLabel, map });
 
 app.addEventListener("changed", () => {
-  map.setFootprint(app.bounds, true);
+  updateAreaLabel();
+  map.showArea(app.area);
   lightCamera.position.set(5, 7.5, -10).normalize().multiplyScalar(30);
   lightCamera.lookAt(scene.position);
   lightCamera.updateMatrixWorld();
@@ -79,35 +90,58 @@ app.addEventListener("progress", (e) => {
 
 let currentLocation = "";
 
-async function load(lat, lng, zoom) {
-  currentLocation = `${lat.toFixed(5)}-${lng.toFixed(5)}-${zoom}`;
-  map.setFootprint(app.boundsFor(lat, lng, zoom + 1), true);
-  await app.load(lat, lng, zoom + 1);
+async function load(lat, lng, span) {
+  currentLocation = `${lat.toFixed(5)}-${lng.toFixed(5)}-${Math.round(span)}m`;
+  await app.load(lat, lng, span);
   ssao.reset();
 }
 
 function readHash() {
-  const [lat, lng, zoom] = window.location.hash.substring(1).split(",");
-  if (!lat || !lng || !zoom) return null;
+  const [lat, lng, span] = window.location.hash.substring(1).split(",");
+  if (!lat || !lng || !span) return null;
   return {
     lat: parseFloat(lat),
     lng: parseFloat(lng),
-    zoom: Math.round(parseFloat(zoom)),
+    span: parseFloat(span),
   };
 }
 
-async function goToHash() {
-  const location = readHash();
-  if (!location) return false;
-  map.moveTo(location.lat, location.lng);
-  map.setSelectionZoom(location.zoom);
-  await load(location.lat, location.lng, location.zoom);
+function writeHash(area) {
+  const next = `${area.lat.toFixed(5)},${area.lng.toFixed(5)},${Math.round(
+    area.span
+  )}`;
+  if (window.location.hash.substring(1) === next) return false;
+  window.location.hash = next;
   return true;
 }
 
+async function goToHash() {
+  const target = readHash();
+  if (!target) return false;
+  map.frameArea(target);
+  await load(target.lat, target.lng, target.span);
+  return true;
+}
+
+map.onViewChange = () => {
+  const area = map.captureArea();
+  if (!area) return;
+  const current = app.area;
+  const moved =
+    Math.abs(area.span / current.span - 1) > 0.01 ||
+    Math.abs(area.lat - current.lat) > 1e-5 ||
+    Math.abs(area.lng - current.lng) > 1e-5;
+  if (!moved) return;
+  map.showArea(area);
+  if (!writeHash(area)) {
+    load(area.lat, area.lng, area.span);
+  }
+};
+
 window.addEventListener("map-selection", (e) => {
   const { lat, lng } = e.detail.latLng;
-  window.location.hash = `${lat},${lng},${map.selectionZoom}`;
+  const area = map.captureArea();
+  writeHash({ lat, lng, span: area ? area.span : 10000 });
 });
 
 window.addEventListener("hashchange", goToHash);
@@ -141,6 +175,7 @@ function render() {
 
 async function init() {
   await map.ready;
+  map.map.invalidateSize();
   syncQuery(params);
   if (!(await goToHash())) {
     map.randomLocation();
