@@ -25,6 +25,7 @@
     <meta property="og:site_name" content="Clicktorelease" />
 
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+    <link href="https://cdn.jsdelivr.net/npm/guspira@0.1.1/dist/guspira.min.css" rel="stylesheet">
     <link href="styles.css" rel="stylesheet">
   </head>
   <body>
@@ -37,22 +38,22 @@
         Use search box to find addresses, or click on the map to select a new
         location.<br/>
         Each location has a unique URL which you can share.</p>
-      <div id="tools">
-        <blockyearth-ui id="ui"></blockyearth-ui>
-      </div>
+      <div id="tools"></div>
       <p>Made with <a target="blank" href="https://threejs.org/">threejs</a>. Find the code on <a target="blank" href="https://github.com/spite/BlockyEarth/">Github</a>.</p>
       <tweet-button></tweet-button>
     </div>
     <map-browser id="map-browser"></map-browser>
     <snack-bar> </snack-bar>
-  </body>
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "./third_party/three.module.js",
-        "lit": "https://unpkg.com/lit@2.8.0/index.js?module"
+    <progress-bar></progress-bar>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./third_party/three.module.js",
+          "lit": "https://unpkg.com/lit@2.8.0/index.js?module",
+          "guspira": "https://cdn.jsdelivr.net/npm/guspira@0.1.1/dist/guspira.min.js"
+        }
       }
-    }
     </script>
-  <script src="main.js" type="module"></script>
+    <script src="main.js" type="module"></script>
+  </body>
 </html>

@@ -1,18 +1,26 @@
+const VERSION_URL = "https://www.clicktorelease.com/code/mv/";
 const FALLBACK_VERSION = 1013;
 
 let currentGoogleMapsVersion = FALLBACK_VERSION;
 
-async function loadVersion() {
-  try {
-    const res = await fetch("https://www.clicktorelease.com/code/mv/");
-    const src = await res.text();
-    const version = parseInt(src.match(/=\s*(\d+)/)?.[1], 10);
-    if (!isNaN(version)) {
-      currentGoogleMapsVersion = version;
-    }
-  } catch (e) {
-    console.warn(`Could not fetch Google Maps version, using fallback.`, e);
-  }
+function loadVersion() {
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = VERSION_URL;
+    const done = () => {
+      if (typeof window.currentGoogleMapsVersion === "number") {
+        currentGoogleMapsVersion = window.currentGoogleMapsVersion;
+      }
+      script.remove();
+      resolve();
+    };
+    script.onload = done;
+    script.onerror = () => {
+      script.remove();
+      resolve();
+    };
+    document.head.append(script);
+  });
 }
 
 const ready = loadVersion();

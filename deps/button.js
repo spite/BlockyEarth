@@ -2,8 +2,6 @@ import { LitElement, html } from "lit";
 
 class Button extends LitElement {
   static properties = {
-    message: { type: String },
-    visible: { type: Boolean },
     pill: { type: Boolean },
     left: { type: Boolean },
     middle: { type: Boolean },
@@ -14,47 +12,20 @@ class Button extends LitElement {
     icon: { type: Boolean },
   };
 
-  constructor() {
-    super();
-    this.timeout = null;
-    this.visible = false;
-  }
-
-  error(message) {
-    this.message = message;
-    this.visible = true;
-    this.clearTimeout();
-    this.timeout = setTimeout(() => {
-      this.hide();
-    }, 4000);
-  }
-
-  clearTimeout() {
-    if (this.timeout) {
-      clearTimeout(this.timeout);
-      this.timeout = null;
-    }
-  }
-
-  hide() {
-    this.clearTimeout();
-    this.visible = false;
-  }
-
   render() {
-    const classes = ["button"];
-    if (this.pill) classes.push("pill");
-    if (this.left) classes.push("left");
-    if (this.right) classes.push("right");
-    if (this.middle) classes.push("middle");
-    if (this.active) classes.push("active");
-    if (this.negative) classes.push("negative");
-    if (this.big) classes.push("big");
-    if (this.icon) classes.push("icon");
+    const modifiers = [
+      "pill",
+      "left",
+      "right",
+      "middle",
+      "active",
+      "negative",
+      "big",
+      "icon",
+    ];
+    const classes = ["button", ...modifiers.filter((m) => this[m])];
     return html`
       <style>
-        :host {
-        }
         .button {
           display: inline-block;
           padding: 8px 16px;

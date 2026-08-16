@@ -1,4 +1,4 @@
-import { Vector3, Color } from "three";
+import { Color } from "three";
 import { delta } from "./color.js";
 
 // from http://www.jennyscrayoncollection.com/2021/06/all-current-lego-colors.html
@@ -36,10 +36,6 @@ const colors = [
   0xe61f26, 0xe8509b, 0xe95ea2, 0xf7adce,
 ];
 
-function luma(c) {
-  return c.r * 0.3 + c.g * 0.59 + c.b * 0.11;
-}
-
 function hexToRgb(hex) {
   return {
     r: (hex >> 16) & 0xff,
@@ -48,72 +44,34 @@ function hexToRgb(hex) {
   };
 }
 
-const table = [];
-function init() {
-  for (const c of colors) {
-    const color = new Color();
-    color.setHex(c);
-    // const div = document.createElement("div");
-    // div.style.width = "100px";
-    // div.style.height = "100px";
-    // div.style.backgroundColor = `rgb(${color.r * 255},${color.g * 255},${
-    //   color.b * 255
-    // })`;
-    // document.body.append(div);
-    table.push({ luma: luma(color), rgb: hexToRgb(c), color });
-  }
-}
+const table = colors.map((c) => {
+  const color = new Color();
+  color.setHex(c);
+  return { rgb: hexToRgb(c), color };
+});
 
-init();
-
-function logColor(c) {
-  return `rgb(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(
-    c.b * 255
-  )})`;
-}
-
-const hsl = new Color();
+const cache = new Map();
 
 function getClosestColor(c) {
-  // const l = luma(c);
-  // for (let i = 1; i < table.length; i++) {
-  //   if (table[i].luma > l) {
-  //     return table[i].color;
-  //   }
-  // }
-  // return table[table.length - 1].color;
-  let min = 1000;
-  let sel;
-  // const hsl0 = new Color();
-  c.getHSL(hsl);
-  const rgb = hexToRgb(c.getHex());
+  const hex = c.getHex();
+  const cached = cache.get(hex);
+  if (cached) {
+    return cached;
+  }
+
+  const rgb = hexToRgb(hex);
+  let min = Infinity;
+  let sel = table[0];
   for (const item of table) {
     const co = item.rgb;
     const d = delta([rgb.r, rgb.g, rgb.b], [co.r, co.g, co.b]);
-    // const co = item.rgb;
-    // const r = rgb.r - co.r; // * 0.299;
-    // const g = rgb.g - co.g; // * 0.587;
-    // const b = rgb.b - co.b; // * 0.114;
-    // const d = Math.sqrt(r ** 2 + g ** 2 + b ** 2);
-
-    // const co = item.color;
-    // co.getHSL(hsl0);
-    // const h = (hsl0.h - hsl.h) * 10;
-    // const s = (hsl0.s - hsl.s) * 1;
-    // const l = (hsl0.l - hsl.l) * 1;
-    // const d = Math.sqrt(h ** 2 + s ** 2 + l ** 2);
     if (d < min) {
       min = d;
       sel = item;
     }
   }
-  // console.log(logColor(c), logColor(sel.color), min);
-  // console.log(
-  //   "%caa %c███ %c███",
-  //   "color: red",
-  //   `color: ${logColor(c)})`,
-  //   `color: ${logColor(sel.color)}`
-  // );
+
+  cache.set(hex, sel.color);
   return sel.color;
 }
 

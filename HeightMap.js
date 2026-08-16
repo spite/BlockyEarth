@@ -15,7 +15,7 @@ import {
   IcosahedronBufferGeometry,
 } from "./third_party/three.module.js";
 import { RoundedBoxGeometry } from "./third_party/RoundedBoxGeometry.js";
-import { generateRoundedPrismGeometry } from "./RoundedPrismGeomtry.js";
+import { generateRoundedPrismGeometry } from "./RoundedPrismGeometry.js";
 import { generatePlasticBrickGeometry } from "./PlasticBrickGeometry.js";
 import { getNextZenHeight } from "./mapbox.js";
 import { GLTFExporter } from "./third_party/GLTFExporter.js";
@@ -25,23 +25,24 @@ import { getClosestColor } from "./colors.js";
 import { nextZenElevation, latToTile, lngToTile, fetchTile } from "./mapbox.js";
 import { mod } from "./modules/Maf.js";
 
-const Box = 1; //Symbol("Box");
-const RoundedBox = 2; //Symbol("RoundedBox");
-const Hexagon = 3; //Symbol("Hexagon");
-const PlasticBrick = 4; //Symbol("PlasticBrick");
-const Capsule = 5; //Symbol("Capsule");
+const Box = "box";
+const RoundedBox = "rounded";
+const Hexagon = "hexagon";
+const PlasticBrick = "brick";
+const Capsule = "capsule";
 
-const NoCrop = 1; //Symbol("NoCrop");
-const CircleCrop = 2; //Symbol("CircleCrop");
-const HexagonCrop = 3; //Symbol("HexagonCrop");
+const NoCrop = "none";
+const CircleCrop = "circle";
+const HexagonCrop = "hexagon";
 
-const NormalHeight = 1; //Symbol("NormalHeight");
-const BlockHeight = 2; //Symbol("BlockHeight");
-const HalfBlockHeight = 3; //Symbol("HalfBlockHeight");
-const QuarterBlockHeight = 4; //Symbol("QuarterBlockHeight");
+const NormalHeight = "natural";
+const BlockHeight = "block";
+const HalfBlockHeight = "half";
+const QuarterBlockHeight = "quarter";
 
 const dummy = new Object3D();
 const c = new Color();
+const sampledColor = new Color();
 const v = new Vector3();
 
 class HeightMap {
@@ -49,8 +50,8 @@ class HeightMap {
     this.setSize(width, height);
     this.step = step;
 
-    this.points = [];
-    this.scale = 80;
+    this.pointCount = 0;
+    this.scale = 150;
 
     this.loadedTiles = 0;
     this.totalTiles = 0;
@@ -73,6 +74,7 @@ class HeightMap {
     this.generation = 0;
 
     this.onProgress = () => {};
+    this.onTilesUnavailable = () => {};
   }
 
   setSize(width, height) {
@@ -171,7 +173,6 @@ class HeightMap {
 
   generate() {
     if (!this.invalidated) return;
-    console.log("GENERATE");
     switch (this.mode) {
       case Box:
         this.generateBoxGeometry();
@@ -189,17 +190,7 @@ class HeightMap {
         this.generateCapsuleGeometry();
         break;
     }
-    switch (this.mode) {
-      case Box:
-      case RoundedBox:
-      case PlasticBrick:
-        this.generateGridPoints();
-        break;
-      case Capsule:
-      case Hexagon:
-        this.generateHexagonGrid();
-        break;
-    }
+    this.generatePoints();
     this.initMesh();
     this.updatePositions();
   }
@@ -266,60 +257,61 @@ class HeightMap {
     return d <= r;
   }
 
-  generateGridPoints() {
-    this.points.length = 0;
-    const uW = this.width / this.step;
-    const uH = this.height / this.step;
-    const offsetW = 0.5 * ((uW + 1) % 2) * this.step;
-    const offsetH = 0.5 * ((uH + 1) % 2) * this.step;
-    for (let y = 0; y < this.height; y += this.step) {
-      for (let x = 0; x < this.width; x += this.step) {
-        const ptr = (y * this.width + x) * 4;
-        v.set(
-          (x + offsetW - 0.5 * this.width) / this.step,
-          0,
-          (y + offsetH - 0.5 * this.height) / this.step
-        ).multiplyScalar(this.boxScale);
-        if (this.filter(v)) {
-          this.points.push({ ptr, x, y, v: v.clone() });
-        }
-      }
-    }
-  }
+  generatePoints() {
+    const hexagonal = this.mode === Hexagon || this.mode === Capsule;
+    const rowStep = hexagonal ? this.step * (Math.sqrt(3) / 2) : this.step;
 
-  generateHexagonGrid() {
-    this.points.length = 0;
-    const f = Math.sqrt(3) / 2;
-    const fstep = this.step * f;
+    const cols = Math.ceil(this.width / this.step);
+    const rows = Math.ceil(this.height / rowStep);
+    const max = cols * rows;
+    if (!this.sampleIndex || this.sampleIndex.length < max) {
+      this.sampleIndex = new Int32Array(max);
+      this.pointX = new Float32Array(max);
+      this.pointZ = new Float32Array(max);
+    }
+
     const uW = this.width / this.step;
     const uH = this.height / this.step;
     const offsetW = 0.5 * ((uW + 1) % 2) * this.step;
     const offsetH = 0.5 * ((uH + 1) % 2) * this.step;
+
+    let n = 0;
     let row = 0;
-    for (let y = 0; y < this.height; y += fstep) {
+    for (let y = 0; y < this.height; y += rowStep) {
       for (let x = 0; x < this.width; x += this.step) {
-        const ptr = (Math.floor(y) * this.width + Math.floor(x)) * 4;
         v.set(
           (x + offsetW - 0.5 * this.width) / this.step,
           0,
           (y + offsetH - 0.5 * this.height) / this.step
         ).multiplyScalar(this.boxScale);
-        if (row % 2 === 1) {
+        if (hexagonal && row % 2 === 1) {
           v.x += this.boxScale / 2;
         }
         if (this.filter(v)) {
-          this.points.push({ ptr, x, y, v: v.clone() });
+          this.sampleIndex[n] = Math.floor(y) * this.width + Math.floor(x);
+          this.pointX[n] = v.x;
+          this.pointZ[n] = v.z;
+          n++;
         }
       }
       row++;
     }
+    this.pointCount = n;
+  }
+
+  disposeMesh() {
+    if (!this.mesh) return;
+    this.mesh.geometry.dispose();
+    this.mesh.dispose();
+    this.mesh = null;
   }
 
   initMesh() {
-    this.mesh = new InstancedMesh(this.geo, this.material, this.points.length);
+    this.disposeMesh();
+    this.mesh = new InstancedMesh(this.geo, this.material, this.pointCount);
     this.mesh.geometry.setAttribute(
       "height",
-      new InstancedBufferAttribute(new Float32Array(this.points.length), 1)
+      new InstancedBufferAttribute(new Float32Array(this.pointCount), 1)
     );
     this.mesh.castShadow = this.mesh.receiveShadow = true;
 
@@ -329,14 +321,11 @@ class HeightMap {
   }
 
   updatePositions() {
-    let i = 0;
-    this.mesh.count = this.points.length;
-    console.log(this.points.length);
-    for (const p of this.points) {
-      dummy.position.copy(p.v);
+    this.mesh.count = this.pointCount;
+    for (let i = 0; i < this.pointCount; i++) {
+      dummy.position.set(this.pointX[i], 0, this.pointZ[i]);
       dummy.updateMatrix();
       this.mesh.setMatrixAt(i, dummy.matrix);
-      i++;
     }
     this.mesh.instanceMatrix.needsUpdate = true;
   }
@@ -349,13 +338,14 @@ class HeightMap {
       for (let x = x0; x < x0 + this.step; x++) {
         if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
           p = (y * this.width + x) * 4;
+          if (data[p + 3] === 0) continue;
           const h = getNextZenHeight(data[p], data[p + 1], data[p + 2]);
           accum += h;
           total++;
         }
       }
     }
-    return accum / total;
+    return total === 0 ? NaN : accum / total;
   }
 
   getColor(data, x0, y0) {
@@ -368,6 +358,7 @@ class HeightMap {
       for (let x = x0; x < x0 + this.step; x++) {
         if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
           p = (y * this.width + x) * 4;
+          if (data[p + 3] === 0) continue;
           r += data[p];
           g += data[p + 1];
           b += data[p + 2];
@@ -375,8 +366,11 @@ class HeightMap {
         }
       }
     }
+    if (total === 0) {
+      return sampledColor.setRGB(0.5, 0.5, 0.5);
+    }
     total *= 255;
-    return new Color(r / total, g / total, b / total);
+    return sampledColor.setRGB(r / total, g / total, b / total);
   }
 
   initCanvases() {
@@ -418,57 +412,58 @@ class HeightMap {
     const z = Math.min(zoom, maxZoom);
     const tileSize = (generator.tileSize ?? 256) * Math.pow(2, zoom - z);
 
+    const tiles = Math.pow(2, z);
+
     const cx = lngToTile(lng, z);
     const cy = latToTile(lat, z);
     const bx = Math.floor(cx);
     const by = Math.floor(cy);
+    const fx = cx - bx;
+    const fy = cy - by;
 
-    const promises = [];
-
-    const maxW = Math.pow(2, z);
-    const maxH = Math.pow(2, z);
-
-    const ox = (cx % 1) * tileSize;
-    const oy = (cy % 1) * tileSize;
+    const ox = fx * tileSize;
+    const oy = fy * tileSize;
     const w0 = Math.ceil((-0.5 * this.width - ox) / tileSize);
     const w1 = Math.ceil((0.5 * this.width - ox) / tileSize);
     const h0 = Math.ceil((-0.5 * this.height - oy) / tileSize);
     const h1 = Math.ceil((0.5 * this.height - oy) / tileSize);
 
-    this.totalTiles += (h1 - h0 + 1) * (w1 - w0 + 1);
-
-    const generation = this.generation;
-
+    const requests = [];
     for (let y = h0; y <= h1; y++) {
+      const ty = by - y;
+      if (ty < 0 || ty >= tiles) continue;
       for (let x = w0; x <= w1; x++) {
-        promises.push(
-          (async () => {
-            const img = fetchTile(
-              mod(bx - x, maxW),
-              mod(by - y, maxH),
-              z,
-              generator
-            );
-            this.tiles.add(img);
-            try {
-              await img.decode();
-              if (generation !== this.generation) return;
-              this.loadedTiles++;
-              this.onProgress((this.loadedTiles * 100) / this.totalTiles);
-              const dx = -(x + (cx % 1)) * tileSize;
-              const dy = -(y + (cy % 1)) * tileSize;
-              ctx.drawImage(img, dx, dy, tileSize, tileSize);
-            } catch (e) {
-              console.warn(`Could not load tile ${img.src}`, e);
-            } finally {
-              this.tiles.delete(img);
-            }
-          })()
-        );
+        requests.push({ tx: mod(bx - x, tiles), ty, x, y });
       }
     }
 
-    return Promise.all(promises);
+    this.totalTiles += requests.length;
+
+    const generation = this.generation;
+    let failed = 0;
+
+    await Promise.all(
+      requests.map(async ({ tx, ty, x, y }) => {
+        const img = fetchTile(tx, ty, z, generator);
+        this.tiles.add(img);
+        try {
+          await img.decode();
+          if (generation !== this.generation) return;
+          this.loadedTiles++;
+          this.onProgress((this.loadedTiles * 100) / this.totalTiles);
+          const dx = Math.round(-(x + fx) * tileSize);
+          const dy = Math.round(-(y + fy) * tileSize);
+          ctx.drawImage(img, dx, dy, tileSize, tileSize);
+        } catch (e) {
+          failed++;
+          console.warn(`Could not load tile ${img.src}`, e);
+        } finally {
+          this.tiles.delete(img);
+        }
+      })
+    );
+
+    return { requested: requests.length, failed };
   }
 
   cancel() {
@@ -494,27 +489,29 @@ class HeightMap {
     this.zoom = zoom;
     this.loadedTiles = 0;
     this.totalTiles = 0;
-    await Promise.all([
+    const [color, elevation] = await Promise.all([
       this.populateMap(this.colorCtx, this.generator, lat, lng, zoom),
       this.populateMap(this.heightCtx, nextZenElevation, lat, lng, zoom - 1),
     ]);
     this.loadedTiles = 0;
     this.totalTiles = 0;
     this.onProgress(0);
+    if (color.requested > 0 && color.failed === color.requested) {
+      this.onTilesUnavailable("color");
+    } else if (elevation.requested > 0 && elevation.failed === elevation.requested) {
+      this.onTilesUnavailable("elevation");
+    }
     this.invalidate();
     this.processMaps();
-    console.log("done");
   }
 
   processMaps() {
     if (!this.mesh) return;
     if (!this.invalidated) return;
     this.bb.makeEmpty();
-    console.time("process");
     this.invalidated = false;
     const colorCtx = this.colorCtx;
     const heightCtx = this.heightCtx;
-    console.log("PROCESS");
     const colorData = colorCtx.getImageData(
       0,
       0,
@@ -528,28 +525,40 @@ class HeightMap {
       heightCtx.canvas.height
     );
 
+    const count = this.pointCount;
+    if (!this.sampledHeights || this.sampledHeights.length < count) {
+      this.sampledHeights = new Float32Array(count);
+    }
+    const sampled = this.sampledHeights;
+
     let min = Number.MAX_SAFE_INTEGER;
     let max = Number.MIN_SAFE_INTEGER;
-    for (const p of this.points) {
+    for (let i = 0; i < count; i++) {
+      const index = this.sampleIndex[i];
       const h = this.getHeight(
         heightData.data,
-        Math.floor(p.x),
-        Math.floor(p.y)
+        index % this.width,
+        Math.floor(index / this.width)
       );
-      min = Math.min(min, h);
-      max = Math.max(max, h);
+      sampled[i] = h;
+      if (h < min) min = h;
+      if (h > max) max = h;
     }
-    const range = max - min || 1;
+    const range = max > min ? max - min : 1;
+    if (min > max) min = 0;
 
     const tmp = new Vector3();
     const heights = this.mesh.geometry.attributes.height.array;
-    let i = 0;
-    for (const p of this.points) {
-      let h = this.getHeight(heightData.data, Math.floor(p.x), Math.floor(p.y));
+    for (let i = 0; i < count; i++) {
+      const index = this.sampleIndex[i];
+      const sx = index % this.width;
+      const sy = Math.floor(index / this.width);
+      let h = sampled[i];
+      if (Number.isNaN(h)) h = min;
       if (this._normalizeHeight) {
-        h = ((h - min) / range) * Math.exp(this.verticalScale);
+        h = ((h - min) / range) * this.verticalScale;
       } else {
-        h = (h - min) * Math.exp(this.verticalScale);
+        h = (h - min) * this.verticalScale;
       }
       h /= this.step;
       switch (this._quantHeight) {
@@ -570,9 +579,9 @@ class HeightMap {
         h += 0.005 - 0.01 * Math.random();
       }
 
-      tmp.set(p.v.x, h * this.boxScale, p.v.z);
+      tmp.set(this.pointX[i], h * this.boxScale, this.pointZ[i]);
       this.bb.expandByPoint(tmp);
-      const c = this.getColor(colorData.data, Math.floor(p.x), Math.floor(p.y));
+      const c = this.getColor(colorData.data, sx, sy);
 
       heights[i] = h * this.boxScale;
       if (this.brickPalette) {
@@ -580,9 +589,7 @@ class HeightMap {
       } else {
         this.mesh.setColorAt(i, c);
       }
-      i++;
     }
-    console.timeEnd("process");
 
     this.mesh.instanceColor.needsUpdate = true;
     this.mesh.geometry.attributes.height.needsUpdate = true;

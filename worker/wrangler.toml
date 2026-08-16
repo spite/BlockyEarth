@@ -1,0 +1,6 @@
+name = "blocky-earth-tiles"
+main = "index.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://spite.github.io"

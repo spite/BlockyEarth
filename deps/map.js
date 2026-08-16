@@ -92,10 +92,23 @@ class MapBrowser extends LitElement {
     ).addTo(this.map);
 
     this.map.on("click", (e) => this.onMapClick(e));
+    this.map.on("zoomend", () => {
+      if (!this.adjustingView) {
+        this.selectionZoom = this.map.getZoom();
+      }
+    });
+    this.selectionZoom = this.map.getZoom();
   }
 
   get zoom() {
     return this.map.getZoom();
+  }
+
+  setSelectionZoom(zoom) {
+    this.selectionZoom = zoom;
+    this.adjustingView = true;
+    this.map.setZoom(zoom, { animate: false });
+    this.adjustingView = false;
   }
 
   onMapClick(e) {
@@ -107,7 +120,39 @@ class MapBrowser extends LitElement {
     this.lng = lng;
     this.removeMarker();
     this.marker = L.marker([lat, lng]).addTo(this.map);
-    this.map.panTo([lat, lng]);
+    this.map.panTo([lat, lng], { animate: false });
+  }
+
+  setFootprint(bounds, fit = false) {
+    if (!this.map || !bounds) return;
+    const corners = [
+      [bounds.south, bounds.west],
+      [bounds.north, bounds.east],
+    ];
+    const key = corners.flat().join(",");
+    const moved = key !== this.footprintKey;
+    this.footprintKey = key;
+
+    if (this.footprint) {
+      this.footprint.setBounds(corners);
+    } else {
+      this.footprint = this.createFootprint(corners);
+    }
+    if (fit && moved) {
+      this.adjustingView = true;
+      this.map.fitBounds(corners, { padding: [24, 24], animate: false });
+      this.adjustingView = false;
+    }
+  }
+
+  createFootprint(corners) {
+    return L.rectangle(corners, {
+      color: "#0f5ea2",
+      weight: 2,
+      fillColor: "#0f5ea2",
+      fillOpacity: 0.1,
+      interactive: false,
+    }).addTo(this.map);
   }
 
   removeMarker() {

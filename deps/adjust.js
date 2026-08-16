@@ -37,7 +37,6 @@ function adjustPerspectiveToVertices(camera, vertices, keepAspectRatio = true) {
     maxX = Math.max(maxX, Math.abs(projectedVertex.x));
     maxY = Math.max(maxY, Math.abs(projectedVertex.y));
     const viewSpaceVertex = vertex.clone().applyMatrix4(m);
-    console.log(viewSpaceVertex.z);
     maxZ = Math.max(maxZ, viewSpaceVertex.z);
     minZ = Math.min(minZ, viewSpaceVertex.z);
     // Calculate FOV for the current vertex.

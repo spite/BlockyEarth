@@ -1,4 +1,4 @@
-import { mapBoxKey, nextZenKey } from "./config.js";
+import { nextZenKey, tileProxy } from "./config.js";
 
 // https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#ECMAScript_.28JavaScript.2FActionScript.2C_etc..29
 
@@ -15,64 +15,29 @@ function latToTile(l, z) {
   );
 }
 
-const d2r = Math.PI / 180;
-const r2d = 180 / Math.PI;
+// https://leaflet-extras.github.io/leaflet-providers/preview/
 
-function pointToTileFraction(lon, lat, z) {
-  var sin = Math.sin(lat * d2r),
-    z2 = Math.pow(2, z),
-    x = z2 * (lon / 360 + 0.5),
-    y = z2 * (0.5 - (0.25 * Math.log((1 + sin) / (1 - sin))) / Math.PI);
-
-  // Wrap Tile X
-  x = x % z2;
-  if (x < 0) x = x + z2;
-  return [x, y, z];
-}
-
-function tile2lng(x, z) {
+function tileToLng(x, z) {
   return (x / Math.pow(2, z)) * 360 - 180;
 }
 
-function tile2lat(y, z) {
-  var n = Math.PI - (2 * Math.PI * y) / Math.pow(2, z);
-  return r2d * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+function tileToLat(y, z) {
+  const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, z);
+  return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
 }
 
-function tileToLatLng(x, y, z) {
-  const lng = tile2lng(x, z);
-  const lat = tile2lat(y, z);
-  return { lng, lat };
+function mapBounds(lat, lng, zoom, width, height) {
+  const cx = lngToTile(lng, zoom);
+  const cy = latToTile(lat, zoom);
+  const halfW = width / 512;
+  const halfH = height / 512;
+  return {
+    north: tileToLat(cy - halfH, zoom),
+    south: tileToLat(cy + halfH, zoom),
+    west: tileToLng(cx - halfW, zoom),
+    east: tileToLng(cx + halfW, zoom),
+  };
 }
-
-function getHeight(r, g, b) {
-  const height = -10000 + (r * 256 * 256 + g * 256 + b) * 0.1;
-  return height;
-}
-
-function convertHeight(img) {
-  const canvas = document.createElement("canvas");
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0);
-  const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  for (let ptr = 0; ptr < canvas.width * canvas.height * 4; ptr += 4) {
-    const r = data.data[ptr];
-    const g = data.data[ptr + 1];
-    const b = data.data[ptr + 2];
-    const height = -10000 + (r * 256 * 256 + g * 256 + b) * 0.1;
-    const c = height; //height / 2 ** 24;
-    data.data[ptr] = c;
-    data.data[ptr + 1] = c;
-    data.data[ptr + 2] = c;
-    data.data[ptr + 3] = 255;
-  }
-  ctx.putImageData(data, 0, 0);
-  return canvas;
-}
-
-// https://leaflet-extras.github.io/leaflet-providers/preview/
 
 function EsriWorldImagery(x, y, z) {
   return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`; // Esri.WorldImagery
@@ -102,6 +67,35 @@ function CartoLight(x, y, z) {
   return `https://basemaps.cartocdn.com/light_all/${z}/${x}/${y}.png`; // CartoDB.Positron
 }
 
+function Sentinel2Cloudless(x, y, z) {
+  return `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/GoogleMapsCompatible/${z}/${y}/${x}.jpg`;
+}
+
+function EsriOceanBase(x, y, z) {
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/${z}/${y}/${x}`;
+}
+
+function NASABlueMarbleBathymetry(x, y, z) {
+  return `https://gitc.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/2004-01-01/GoogleMapsCompatible_Level8/${z}/${y}/${x}.jpeg`;
+}
+
+const WEB_MERCATOR_HALF = 20037508.342789244;
+
+function tileBBox(x, y, z) {
+  const span = (2 * WEB_MERCATOR_HALF) / Math.pow(2, z);
+  const minX = -WEB_MERCATOR_HALF + x * span;
+  const maxY = WEB_MERCATOR_HALF - y * span;
+  return `${minX},${maxY - span},${minX + span},${maxY}`;
+}
+
+function GEBCOBathymetry(x, y, z) {
+  return `https://wms.gebco.net/mapserv?request=getmap&service=wms&crs=EPSG:3857&format=image/png&layers=gebco_latest&width=256&height=256&version=1.3.0&bbox=${tileBBox(
+    x,
+    y,
+    z
+  )}`;
+}
+
 function USGSUSImagery(x, y, z) {
   return `https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/${z}/${y}/${x}`; // USGS.USImagery
 }
@@ -124,11 +118,19 @@ CartoLight.maxZoom = 20;
 USGSUSImagery.maxZoom = 16;
 GeoportailFrance.maxZoom = 19;
 NASAGIBSViirsEarthAtNight2012.maxZoom = 8;
+Sentinel2Cloudless.maxZoom = 16;
+EsriOceanBase.maxZoom = 16;
+NASABlueMarbleBathymetry.maxZoom = 8;
+
+function proxied(url) {
+  if (!tileProxy) return url;
+  return `${tileProxy.replace(/\/$/, "")}/?u=${encodeURIComponent(url)}`;
+}
 
 function fetchTile(x, y, z, generator = EsriWorldImagery) {
   const img = new Image();
   img.crossOrigin = "anonymous";
-  img.src = generator(x, y, z);
+  img.src = proxied(generator(x, y, z));
   return img;
 }
 
@@ -143,21 +145,11 @@ function getNextZenHeight(r, g, b) {
   return r * 1 + g / 256 + b / 65536;
 }
 
-function mapBoxElevation(x, y, z) {
-  return `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}@2x.pngraw?access_token=${mapBoxKey}`;
-}
-
-function getMapBoxHeight(r, g, b) {
-  return -10000 + (r * 256 * 256 + g * 256 + b) * 0.1;
-}
-
 export {
   lngToTile,
   latToTile,
-  pointToTileFraction,
-  tileToLatLng,
+  mapBounds,
   getNextZenHeight,
-  getHeight,
   fetchTile,
   EsriWorldImagery,
   EsriWorldTerrain,
@@ -166,6 +158,10 @@ export {
   EsriNatGeoWorldMap,
   OpenTopoMap,
   CartoLight,
+  Sentinel2Cloudless,
+  EsriOceanBase,
+  NASABlueMarbleBathymetry,
+  GEBCOBathymetry,
   USGSUSImagery,
   GeoportailFrance,
   NASAGIBSViirsEarthAtNight2012,

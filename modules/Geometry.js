@@ -13,9 +13,8 @@ function mergeBuffer(geo, id, geometries) {
   let ptr = 0;
   for (const geometry of geometries) {
     data.set(geometry.attributes[id].array, ptr);
-    ptr += geometry.attributes.position.array.length;
+    ptr += geometry.attributes[id].array.length;
   }
-  //data.set(b.attributes[id].array, a.attributes.position.array.length);
   geo.setAttribute(
     id,
     new BufferAttribute(data, geometries[0].attributes[id].itemSize)

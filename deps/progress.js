@@ -12,18 +12,6 @@ class ProgressBar extends LitElement {
     this.progress = 0;
   }
 
-  reset() {
-    this.progress = 0;
-  }
-
-  show() {
-    this.style.display = "flex";
-  }
-
-  hide() {
-    this.style.display = "none";
-  }
-
   render() {
     return html`
       <style>

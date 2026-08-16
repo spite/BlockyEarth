@@ -68,30 +68,19 @@ canvas {
 #info p {
   margin-bottom: 1em;
 }
+progress-bar {
+  display: none;
+}
 #tools {
   pointer-events: auto;
-  display: flex;
-  flex-wrap: wrap;
-  flex-direction: column;
-  gap: 0.5em;
-  margin-bottom: 0.5em;
-}
-#tools div {
-  display: flex;
-  align-items: center;
-}
-#tools div span {
-  margin-right: 0.5em;
+  margin-bottom: 1em;
+  width: 420px;
+  max-width: 100%;
+  text-shadow: none;
+  color: initial;
 }
 x-button {
   text-shadow: none;
-}
-#pauseBtn {
-  margin-right: 0.5em;
-}
-#description {
-  margin-top: 1em;
-  white-space: pre-line;
 }
 x-button svg {
   fill: #3c3c3d;
