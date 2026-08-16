@@ -25,7 +25,7 @@ const defaults = {
   quantize: NormalHeight,
   verticalScale: 2,
   projection: "corrected",
-  align: true,
+  handPlaced: false,
   palette: false,
 };
 
@@ -148,8 +148,8 @@ function buildGui(app, { onSnapshot, areaLabel, map }) {
     onChange: reshape,
   });
 
-  gui.addCheckbox("Align", params.align, {
-    title: "Off nudges each block off the lattice, for a hand-stacked look",
+  gui.addCheckbox("Hand placed", params.handPlaced, {
+    title: "Nudge each block off the lattice, as if stacked by hand",
     onChange: reshape,
   });
   gui.addCheckbox("Brick palette", params.palette, { onChange: reshape });

@@ -28,7 +28,10 @@ function generateRoundedPrismGeometry(width, border) {
     vertices[i + 2] = v.z;
   }
 
-  return geometry;
+  const faceted = geometry.toNonIndexed();
+  faceted.computeVertexNormals();
+  geometry.dispose();
+  return faceted;
 }
 
 export { generateRoundedPrismGeometry };

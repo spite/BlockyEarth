@@ -140,7 +140,6 @@ class MapBrowser extends LitElement {
     this.map.fitBounds(this.areaCorners(area), { animate: false });
     this.removeMarker();
     this.marker = L.marker([area.lat, area.lng]).addTo(this.map);
-    this.showArea(area);
   }
 
   captureArea() {
@@ -157,49 +156,6 @@ class MapBrowser extends LitElement {
       [bounds.getNorth(), centre.lng]
     );
     return { lat: centre.lat, lng: centre.lng, span: Math.min(width, height) };
-  }
-
-  showArea(area) {
-    if (!this.map || !area) return;
-    const [sw, ne] = this.areaCorners(area);
-    this.setFootprint({
-      south: sw[0],
-      west: sw[1],
-      north: ne[0],
-      east: ne[1],
-    });
-  }
-
-  setFootprint(bounds, fit = false) {
-    if (!this.map || !bounds) return;
-    const corners = [
-      [bounds.south, bounds.west],
-      [bounds.north, bounds.east],
-    ];
-    const key = corners.flat().join(",");
-    const moved = key !== this.footprintKey;
-    this.footprintKey = key;
-
-    if (this.footprint) {
-      this.footprint.setBounds(corners);
-    } else {
-      this.footprint = this.createFootprint(corners);
-    }
-    if (fit && moved) {
-      this.adjustingView = true;
-      this.map.fitBounds(corners, { padding: [24, 24], animate: false });
-      this.adjustingView = false;
-    }
-  }
-
-  createFootprint(corners) {
-    return L.rectangle(corners, {
-      color: "#0f5ea2",
-      weight: 2,
-      fillColor: "#0f5ea2",
-      fillOpacity: 0.1,
-      interactive: false,
-    }).addTo(this.map);
   }
 
   removeMarker() {

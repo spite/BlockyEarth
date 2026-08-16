@@ -53,7 +53,7 @@ progress-bar {
   left: 1em;
   top: 1em;
   z-index: 10;
-  width: 420px;
+  width: 480px;
   max-width: calc(100vw - 2em);
   max-height: calc(100vh - 2em);
   overflow-y: auto;
@@ -62,7 +62,7 @@ progress-bar {
 map-browser {
   display: block;
   width: 100%;
-  height: 240px;
+  aspect-ratio: 1;
 }
 .gui-map-row {
   display: block;

@@ -67,7 +67,6 @@ buildGui(app, { onSnapshot: () => capture(), areaLabel, map });
 
 app.addEventListener("changed", () => {
   updateAreaLabel();
-  map.showArea(app.area);
   lightCamera.position.set(5, 7.5, -10).normalize().multiplyScalar(30);
   lightCamera.lookAt(scene.position);
   lightCamera.updateMatrixWorld();
@@ -132,7 +131,6 @@ map.onViewChange = () => {
     Math.abs(area.lat - current.lat) > 1e-5 ||
     Math.abs(area.lng - current.lng) > 1e-5;
   if (!moved) return;
-  map.showArea(area);
   if (!writeHash(area)) {
     load(area.lat, area.lng, area.span);
   }

@@ -98,7 +98,7 @@ class BlockyEarth extends EventTarget {
     heightMap.quantHeight = p.quantize();
     heightMap.scale = p.verticalScale();
     heightMap.corrected = p.projection() === "corrected";
-    heightMap.perfectAlignment = p.align();
+    heightMap.handPlaced = p.handPlaced();
     heightMap.brickPalette = p.palette();
     heightMap.generator = generators[p.tiles()];
   }

@@ -72,7 +72,7 @@ class HeightMap {
     this.mode = Hexagon;
     this.crop = NoCrop;
     this.quantHeight = NormalHeight;
-    this.perfectAlignment = true;
+    this.handPlaced = false;
     this.brickPalette = false;
     this.corrected = true;
 
@@ -146,13 +146,13 @@ class HeightMap {
     return this._corrected;
   }
 
-  set perfectAlignment(v) {
-    this.invalidated ||= this.perfectAlignment !== v;
-    this._perfectAlignment = v;
+  set handPlaced(v) {
+    this.invalidated ||= this.handPlaced !== v;
+    this._handPlaced = v;
   }
 
-  get perfectAlignment() {
-    return this._perfectAlignment;
+  get handPlaced() {
+    return this._handPlaced;
   }
 
   set quantHeight(h) {
@@ -513,7 +513,7 @@ class HeightMap {
           break;
       }
       h += base;
-      if (!this._perfectAlignment) {
+      if (this._handPlaced) {
         h += (0.5 - Math.random()) * JITTER * unit;
       }
 

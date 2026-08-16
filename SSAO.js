@@ -70,7 +70,7 @@ void main() {
   } else {
     pp.y = position.y + h;
   }
-  vNormal = normal;
+  vNormal = normalize(normalMatrix * normal);
   vec4 fPos = instanceMatrix * vec4(pp, 1.0);
   vMPosition = modelMatrix * fPos;
   vec4 mvPosition = modelViewMatrix * fPos;
@@ -156,12 +156,10 @@ void main() {
   jitterTable[6] = vec2(0.4375, 0.0625);
   jitterTable[7] = vec2(0.1875, 0.3125);
 
-  vec3 X = dFdx(vPosition);
-  vec3 Y = dFdy(vPosition);
-  vec3 n = normalize(cross(X,Y));
+  vec3 n = normalize(vNormal);
   float p = random(vMPosition.xy + vec2(time, vMPosition.z));
   int ptr = int(floor(p*8.));
-  n.xz += .1 * jitterTable[ptr];
+  n.xz += .03 * jitterTable[ptr];
   n = normalize(n);
 
   vec3 ld = normalize(lDir);
