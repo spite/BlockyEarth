@@ -5,6 +5,8 @@ import {
   WebGLMultipleRenderTargets,
   NearestFilter,
   FloatType,
+  HalfFloatType,
+  UnsignedByteType,
   Scene,
   Color,
   Mesh,
@@ -296,17 +298,13 @@ void main() {
     occlusion += sampleBuffer( position, normal, vUv + k1 * kRadius * 0.5 );
     occlusion += sampleBuffer( position, normal, vUv + k2 * kRadius * 0.25 );
 
-    float s = 1.;
-    acCol += texture(colorMap, vUv + s * k1 * kRadius );
-    acCol += texture(colorMap, vUv + s * k2 * kRadius * 0.75 );
-    acCol += texture(colorMap, vUv + s * k1 * kRadius * 0.5 );
-    acCol += texture(colorMap, vUv + s * k2 * kRadius * 0.25 );
+    acCol += texture(colorMap, vUv + k1 * kRadius );
   }
 
   occlusion /= 16.0;
   occlusion = clamp( occlusion, 0.0, 1.0 );
 
-  acCol /= 16.;
+  acCol /= 4.;
 
   vec4 color = texture(colorMap, vUv);
   color.rgb = screen(color.rgb, acCol.rgb, .1);
@@ -363,12 +361,14 @@ const size = new Vector2();
 class SSAO {
   constructor() {
     this.invalidate = true;
+    this.shadowDirty = true;
     this.renderTarget = new WebGLMultipleRenderTargets(1, 1, 3);
-    for (const texture of this.renderTarget.texture) {
+    const attachmentTypes = [UnsignedByteType, HalfFloatType, HalfFloatType];
+    this.renderTarget.texture.forEach((texture, i) => {
       texture.minFilter = NearestFilter;
       texture.magFilter = NearestFilter;
-      texture.type = FloatType;
-    }
+      texture.type = attachmentTypes[i];
+    });
 
     this.shadowFBO = getFBO(2048, 2048, {
       minFilter: NearestFilter,
@@ -475,8 +475,6 @@ class SSAO {
   updateShadow(renderer, scene, camera) {
     camera.updateMatrixWorld();
     camera.updateProjectionMatrix();
-    size.set(this.shadowFBO.width, this.shadowFBO.height).multiplyScalar(1 / 14);
-    updateProjectionMatrixJitter(camera, size);
     this.shader.uniforms.shadowProjectionMatrix.value.copy(
       camera.projectionMatrix
     );
@@ -505,6 +503,10 @@ class SSAO {
     this.invalidate = true;
   }
 
+  invalidateShadow() {
+    this.shadowDirty = true;
+  }
+
   render(renderer, scene, camera, lightCamera) {
     if (this.invalidate) {
       resetPointer();
@@ -519,7 +521,10 @@ class SSAO {
       return;
     }
 
-    this.updateShadow(renderer, scene, lightCamera);
+    if (this.shadowDirty) {
+      this.updateShadow(renderer, scene, lightCamera);
+      this.shadowDirty = false;
+    }
 
     renderer.getSize(size);
     size.multiplyScalar(renderer.getPixelRatio());

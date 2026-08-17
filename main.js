@@ -26,7 +26,7 @@ const renderer = new WebGLRenderer({
   powerPreference: "high-performance",
 });
 renderer.setClearColor(0, 0);
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.autoClear = false;
 
 document.body.append(renderer.domElement);
@@ -71,6 +71,7 @@ app.addEventListener("changed", () => {
   lightCamera.lookAt(scene.position);
   lightCamera.updateMatrixWorld();
   adjustOrthoToBB(lightCamera, app.bb);
+  ssao.invalidateShadow();
   ssao.reset();
 });
 
