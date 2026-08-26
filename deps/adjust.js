@@ -85,38 +85,31 @@ function adjustPerspectiveToBB(camera, bb, keepAspectRatio = true) {
 
 /** Adjusts an Orthographic Camera to tightly fit a Bounding Box. */
 function adjustOrthoToVertices(camera, vertices) {
-  // Reset camera to calculate projections.
-  camera.left = -1;
-  camera.right = 1;
-  camera.top = 1;
-  camera.bottom = -1;
-  camera.near = 0.1;
-  camera.far = 2000;
-  camera.updateProjectionMatrix();
-
   m.copy(camera.matrixWorld).invert();
 
-  // Build all vertices of a box defined by the bounding box.
-  let maxX = Number.MIN_SAFE_INTEGER;
-  let maxY = Number.MIN_SAFE_INTEGER;
-  let maxZ = Number.MIN_SAFE_INTEGER;
-  let minZ = Number.MAX_SAFE_INTEGER;
+  // Find the extents of the vertices in the camera's own view space.
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
 
-  // Find maximum values on projected x and y,  and z in view space.
   for (const vertex of vertices) {
-    const projectedVertex = vertex.clone().project(camera);
-    maxX = Math.max(maxX, Math.abs(projectedVertex.x));
-    maxY = Math.max(maxY, Math.abs(projectedVertex.y));
-    const viewSpaceVertex = vertex.clone().applyMatrix4(m);
-    maxZ = Math.max(maxZ, viewSpaceVertex.z);
-    minZ = Math.min(minZ, viewSpaceVertex.z);
+    const v = vertex.clone().applyMatrix4(m);
+    minX = Math.min(minX, v.x);
+    maxX = Math.max(maxX, v.x);
+    minY = Math.min(minY, v.y);
+    maxY = Math.max(maxY, v.y);
+    minZ = Math.min(minZ, v.z);
+    maxZ = Math.max(maxZ, v.z);
   }
 
   // Update camera properties with new dimensions.
-  camera.left = -maxX;
+  camera.left = minX;
   camera.right = maxX;
+  camera.bottom = minY;
   camera.top = maxY;
-  camera.bottom = -maxY;
   camera.near = -maxZ;
   camera.far = -minZ;
   camera.updateProjectionMatrix();

@@ -1,5 +1,5 @@
 import { Color } from "three";
-import { delta } from "./color.js";
+import { deltaE, rgb2lab } from "./color.js";
 
 const bricks = {
   "Aqua": 0xb3d7d1,
@@ -70,10 +70,8 @@ const bricks = {
 const table = Object.values(bricks).map((hex) => {
   const color = new Color();
   color.setHex(hex);
-  return {
-    rgb: { r: (hex >> 16) & 0xff, g: (hex >> 8) & 0xff, b: hex & 0xff },
-    color,
-  };
+  const rgb = [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff];
+  return { lab: rgb2lab(rgb), color };
 });
 
 const cache = new Map();
@@ -85,12 +83,11 @@ function getClosestColor(c) {
     return cached;
   }
 
-  const rgb = [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff];
+  const lab = rgb2lab([(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff]);
   let min = Infinity;
   let sel = table[0];
   for (const item of table) {
-    const co = item.rgb;
-    const d = delta(rgb, [co.r, co.g, co.b]);
+    const d = deltaE(lab, item.lab);
     if (d < min) {
       min = d;
       sel = item;

@@ -82,23 +82,120 @@ function GeoportailFrance(x, y, z) {
   return `https://data.geopf.fr/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&TILEMATRIX=${z}&TILEROW=${y}&TILECOL=${x}`;
 }
 
-function NASAGIBSViirsEarthAtNight2012(x, y, z) {
-  return `https://gitc.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_CityLights_2012/default//GoogleMapsCompatible_Level8/${z}/${y}/${x}.jpg`; // NASAGIBS.ViirsEarthAtNight2012
+function gibs(layer, date, level, format, x, y, z) {
+  return (
+    `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layer}/default/${date}` +
+    `/GoogleMapsCompatible_Level${level}/${z}/${y}/${x}.${format}`
+  );
 }
 
-EsriWorldImagery.maxZoom = 19;
-EsriWorldTerrain.maxZoom = 13;
-EsriWorldPhysical.maxZoom = 8;
-EsriWorldShadedRelief.maxZoom = 13;
-EsriNatGeoWorldMap.maxZoom = 16;
-OpenTopoMap.maxZoom = 17;
-CartoLight.maxZoom = 20;
-USGSUSImagery.maxZoom = 16;
-GeoportailFrance.maxZoom = 19;
-NASAGIBSViirsEarthAtNight2012.maxZoom = 8;
-Sentinel2Cloudless.maxZoom = 16;
-EsriOceanBase.maxZoom = 16;
-NASABlueMarbleBathymetry.maxZoom = 8;
+function NASAGIBSViirsEarthAtNight2012(x, y, z) {
+  return gibs("VIIRS_CityLights_2012", "2012-01-01", 8, "jpg", x, y, z);
+}
+
+function NASAModisTrueColor(x, y, z) {
+  return gibs(
+    "MODIS_Terra_CorrectedReflectance_TrueColor",
+    "2024-06-01",
+    9,
+    "jpg",
+    x,
+    y,
+    z
+  );
+}
+
+function NASASeaSurfaceTemp(x, y, z) {
+  return gibs(
+    "GHRSST_L4_MUR_Sea_Surface_Temperature",
+    "2024-06-01",
+    7,
+    "png",
+    x,
+    y,
+    z
+  );
+}
+
+function NASALandSurfaceTemp(x, y, z) {
+  return gibs(
+    "MODIS_Terra_Land_Surface_Temp_Day",
+    "2024-06-01",
+    7,
+    "png",
+    x,
+    y,
+    z
+  );
+}
+
+function NASASnowCover(x, y, z) {
+  return gibs("MODIS_Terra_NDSI_Snow_Cover", "2024-02-01", 8, "png", x, y, z);
+}
+
+function CartoDark(x, y, z) {
+  return `https://basemaps.cartocdn.com/dark_all/${z}/${x}/${y}.png`;
+}
+
+function EsriDarkGray(x, y, z) {
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/${z}/${y}/${x}`;
+}
+
+function JRCWaterOccurrence(x, y, z) {
+  return `https://storage.googleapis.com/global-surface-water/tiles2021/occurrence/${z}/${x}/${y}.png`;
+}
+
+function JRCWaterChange(x, y, z) {
+  return `https://storage.googleapis.com/global-surface-water/tiles2021/transitions/${z}/${x}/${y}.png`;
+}
+
+function EsriOceanReference(x, y, z) {
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Reference/MapServer/tile/${z}/${y}/${x}`;
+}
+
+function EsriBoundariesPlaces(x, y, z) {
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/${z}/${y}/${x}`;
+}
+
+function OpenSeaMap(x, y, z) {
+  return `https://tiles.openseamap.org/seamark/${z}/${x}/${y}.png`;
+}
+
+const ESRI = "Esri, Maxar, Earthstar Geographics";
+const CARTO = "CARTO, OpenStreetMap contributors";
+const GIBS = "NASA EOSDIS GIBS";
+const JRC = "EC JRC / Google, Global Surface Water";
+
+function describe(generator, maxZoom, attribution) {
+  generator.maxZoom = maxZoom;
+  generator.attribution = attribution;
+}
+
+describe(EsriWorldImagery, 19, ESRI);
+describe(EsriWorldTerrain, 13, "Esri, USGS, NOAA");
+describe(EsriWorldPhysical, 8, "Esri, US National Park Service");
+describe(EsriWorldShadedRelief, 13, "Esri");
+describe(EsriNatGeoWorldMap, 16, "Esri, National Geographic");
+describe(EsriDarkGray, 16, "Esri, HERE, Garmin");
+describe(EsriOceanBase, 16, "Esri, GEBCO, NOAA, National Geographic");
+describe(EsriOceanReference, 16, "Esri, GEBCO, NOAA");
+describe(EsriBoundariesPlaces, 16, "Esri, HERE, Garmin");
+describe(OpenTopoMap, 17, "OpenTopoMap, OpenStreetMap contributors");
+describe(OpenSeaMap, 18, "OpenSeaMap, OpenStreetMap contributors");
+describe(CartoLight, 20, CARTO);
+describe(CartoDark, 20, CARTO);
+describe(USGSUSImagery, 16, "USGS The National Map");
+describe(GeoportailFrance, 19, "IGN France");
+describe(Sentinel2Cloudless, 16, "Sentinel-2 cloudless 2020 by EOX IT Services");
+describe(GEBCOBathymetry, 9, "GEBCO Compilation Group");
+describe(NASABlueMarbleBathymetry, 8, GIBS);
+describe(NASAGIBSViirsEarthAtNight2012, 8, `${GIBS}, VIIRS`);
+describe(NASAModisTrueColor, 9, `${GIBS}, MODIS Terra`);
+describe(NASASeaSurfaceTemp, 7, `${GIBS}, GHRSST MUR`);
+describe(NASALandSurfaceTemp, 7, `${GIBS}, MODIS Terra`);
+describe(NASASnowCover, 8, `${GIBS}, MODIS Terra`);
+describe(JRCWaterOccurrence, 12, JRC);
+describe(JRCWaterChange, 12, JRC);
 
 function proxied(url) {
   if (!tileProxy) return url;
@@ -116,8 +213,15 @@ function nextZenElevation(x, y, z) {
   return `https://tile.nextzen.org/tilezen/terrain/v1/512/terrarium/${z}/${x}/${y}.png?api_key=${nextZenKey}`;
 }
 
-nextZenElevation.maxZoom = 14;
+describe(nextZenElevation, 14, "Nextzen, USGS, NASA");
 nextZenElevation.tileSize = 512;
+
+function awsTerrain(x, y, z) {
+  return `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
+}
+
+describe(awsTerrain, 15, "AWS Open Data, Tilezen, USGS, NASA");
+awsTerrain.tileSize = 256;
 
 function getNextZenHeight(r, g, b) {
   return r * 1 + g / 256 + b / 65536;
@@ -142,5 +246,17 @@ export {
   USGSUSImagery,
   GeoportailFrance,
   NASAGIBSViirsEarthAtNight2012,
+  NASAModisTrueColor,
+  NASASeaSurfaceTemp,
+  NASALandSurfaceTemp,
+  NASASnowCover,
+  CartoDark,
+  EsriDarkGray,
+  EsriOceanReference,
+  EsriBoundariesPlaces,
+  OpenSeaMap,
+  JRCWaterOccurrence,
+  JRCWaterChange,
   nextZenElevation,
+  awsTerrain,
 };

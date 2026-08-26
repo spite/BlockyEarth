@@ -4,7 +4,6 @@ import {
   RawShaderMaterial,
   WebGLMultipleRenderTargets,
   NearestFilter,
-  FloatType,
   HalfFloatType,
   UnsignedByteType,
   Scene,
@@ -208,9 +207,18 @@ void main() {
 }
 `;
 
+const sRGBTransfer = `
+vec3 sRGBToLinear(vec3 c) {
+  return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+}
+
+vec3 linearToSRGB(vec3 c) {
+  return mix(c * 12.92, 1.055 * pow(c, vec3(1. / 2.4)) - 0.055, step(vec3(0.0031308), c));
+}`;
+
 const ssaoFs = `precision highp float;
 
-uniform sampler2D colorMap; 
+uniform sampler2D colorMap;
 uniform sampler2D positionMap;
 uniform sampler2D normalMap;
 uniform float bias;
@@ -225,6 +233,8 @@ uniform float saturation;
 in vec2 vUv;
 
 out vec4 fragColor;
+
+${sRGBTransfer}
 
 float sampleBuffer( vec3 position, vec3 normal, vec2 uv) {
 
@@ -313,7 +323,7 @@ void main() {
   vec3 shaded = czm_saturation(base * aoColor, 1. + aoSaturation);
   vec3 finalColor = mix(base, shaded, occlusion);
 
-	fragColor = vec4(clamp(finalColor, 0., 1.), color.a);
+	fragColor = vec4(sRGBToLinear(clamp(finalColor, 0., 1.)), color.a);
   
 }`;
 
@@ -349,9 +359,11 @@ in vec2 vUv;
 
 out vec4 fragColor;
 
+${sRGBTransfer}
+
 void main() {
   vec4 c = texture(colorTexture, vUv);
-  vec3 color = c.rgb / samples;
+  vec3 color = linearToSRGB(c.rgb / samples);
   fragColor = vec4(color, 1.);
 }
 `;
@@ -370,7 +382,7 @@ class SSAO {
       texture.type = attachmentTypes[i];
     });
 
-    this.shadowFBO = getFBO(2048, 2048, {
+    this.shadowFBO = getFBO(4096, 4096, {
       minFilter: NearestFilter,
       magFilter: NearestFilter,
     });
@@ -440,7 +452,7 @@ class SSAO {
     });
     this.pass = new ShaderPass(this.ssaoShader, {
       format: RGBAFormat,
-      type: FloatType,
+      type: HalfFloatType,
     });
 
     // this.ssaoShader.uniforms.attenuation.value.set(1, 1);
@@ -455,6 +467,7 @@ class SSAO {
       glslVersion: GLSL3,
     });
     this.accumPass = new ShaderPass(this.accumShader);
+    this.accumPass.screenOnly = true;
   }
 
   setSize(width, height, dpr) {
@@ -479,15 +492,27 @@ class SSAO {
       camera.projectionMatrix
     );
     this.shader.uniforms.shadowViewMatrix.value.copy(camera.matrixWorldInverse);
+    const extent = Math.max(
+      camera.right - camera.left,
+      camera.top - camera.bottom
+    );
     this.shader.uniforms.shadowNormalBias.value =
-      (1.5 * (camera.right - camera.left)) / this.shadowFBO.width;
+      (3.5 * extent) / this.shadowFBO.width;
 
     this.depthMaterial.uniforms.near.value = camera.near;
     this.depthMaterial.uniforms.far.value = camera.far;
     renderer.setRenderTarget(this.shadowFBO);
     renderer.clear();
     scene.overrideMaterial = this.depthMaterial;
+    const hidden = [];
+    scene.traverse((object) => {
+      if (object.userData.noShadow && object.visible) {
+        object.visible = false;
+        hidden.push(object);
+      }
+    });
     renderer.render(scene, camera);
+    for (const object of hidden) object.visible = true;
     scene.overrideMaterial = null;
   }
 

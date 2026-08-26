@@ -45,7 +45,7 @@ canvas {
   right: 0;
   bottom: 0;
 }
-progress-bar {
+#tools.hidden {
   display: none;
 }
 #tools {
@@ -66,6 +66,21 @@ map-browser {
 }
 .gui-map-row {
   display: block;
+}
+.gui-row > .gui-control.gui-btn-group {
+  flex: 0 0 calc(100% - var(--gui-label-width));
+}
+.gui-source-row {
+  align-items: start;
+}
+.gui-source-row .gui-label {
+  flex: 0 0 auto;
+}
+.gui-source-row .gui-monitor {
+  flex: 1 1 auto;
+  text-align: right;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 x-button {
   text-shadow: none;

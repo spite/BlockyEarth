@@ -7,6 +7,16 @@ function metresPerPixel(lat, zoom) {
   return (EQUATOR_METRES_PER_PIXEL * Math.cos(lat * DEG)) / Math.pow(2, zoom);
 }
 
+function mercatorY(lat) {
+  const clamped = Math.min(MAX_LAT, Math.max(-MAX_LAT, lat));
+  const a = clamped * DEG;
+  return (1 - Math.log(Math.tan(a) + 1 / Math.cos(a)) / Math.PI) / 2;
+}
+
+function mercatorX(lng) {
+  return (lng + 180) / 360;
+}
+
 function zoomForResolution(lat, metres, tileSize = 256) {
   const world = 2 * Math.PI * EARTH_RADIUS * Math.cos(lat * DEG);
   return Math.log2(world / (tileSize * metres));
@@ -55,6 +65,8 @@ export {
   DEG,
   MAX_LAT,
   metresPerPixel,
+  mercatorX,
+  mercatorY,
   zoomForResolution,
   createAzimuthal,
   createMercator,

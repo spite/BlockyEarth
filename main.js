@@ -6,12 +6,19 @@ import {
   Scene,
   PerspectiveCamera,
   OrthographicCamera,
+  Box3,
+  Raycaster,
+  Vector2,
+  Vector3,
 } from "three";
 import { adjustOrthoToBB } from "./deps/adjust.js";
 import { OrbitControls } from "./third_party/OrbitControls.js";
 import { SSAO } from "./SSAO.js";
 import { BlockyEarth } from "./BlockyEarth.js";
 import { buildGui, createGuiParams, syncQuery } from "./gui.js";
+import { Flight } from "./flight.js";
+import { Walker } from "./walk.js";
+import { PathPreview } from "./preview.js";
 import { signal } from "guspira";
 
 const ssao = new SSAO();
@@ -42,6 +49,7 @@ controls.addEventListener("change", () => {
 });
 
 const s = 7;
+const lightBB = new Box3();
 const lightCamera = new OrthographicCamera(-s, s, s, -s, 5, 30);
 lightCamera.position.set(5, 7.5, -10).normalize().multiplyScalar(30);
 lightCamera.lookAt(scene.position);
@@ -54,6 +62,11 @@ app.material = ssao.shader;
 scene.add(app.group);
 
 const areaLabel = signal("");
+const sourceLabel = signal("");
+
+function updateSourceLabel() {
+  sourceLabel.set(app.attribution);
+}
 
 function updateAreaLabel() {
   const { span, spacing } = app.area;
@@ -63,16 +76,179 @@ function updateAreaLabel() {
   areaLabel.set(`${size} × ${size} km · ${per}/block`);
 }
 
-buildGui(app, { onSnapshot: () => capture(), areaLabel, map });
+const flight = new Flight({
+  camera,
+  controls,
+  onFrame: () => ssao.reset(),
+  onEnd: () => ssao.reset(),
+});
+
+const pathPreview = new PathPreview();
+scene.add(pathPreview.group);
+
+let lastPeaks = [];
+
+function buildFlight({ spots, height, banking }) {
+  lastPeaks = app.findPeaks(spots);
+  const { span } = app.area;
+  flight.banking = banking;
+  return flight.build(lastPeaks, app.heightField(), (height * 10.24) / span);
+}
+
+function applyFlight(options) {
+  const built = buildFlight(options);
+  if (options.preview && built) {
+    pathPreview.show(flight.path, lastPeaks, camera);
+  } else {
+    pathPreview.hide();
+  }
+  ssao.reset();
+  return built;
+}
+
+function flyOver(options) {
+  if (flight.playing) {
+    flight.stop();
+    return;
+  }
+  if (!applyFlight(options)) {
+    snackbar.error("Not enough distinct high points here to build a path.");
+    return;
+  }
+  flight.start();
+}
+
+function updateFlight(options) {
+  if (!flight.playing && !options.preview && !pathPreview.visible) return;
+  const at = flight.playing ? flight.progress : 0;
+  if (applyFlight(options) && flight.playing) flight.resume(at);
+}
+
+for (const event of ["pointerdown", "wheel"]) {
+  window.addEventListener(event, () => flight.stop(), { passive: true });
+}
+
+window.addEventListener(
+  "keydown",
+  (e) => {
+    if (e.key === "Tab") return;
+    flight.stop();
+  },
+  { passive: true }
+);
+
+const tools = document.querySelector("#tools");
+
+function applyUi() {
+  tools.classList.toggle("hidden", !params.ui());
+}
+
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "Tab") return;
+  if (e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.target instanceof Element && e.target.closest("#tools")) return;
+  e.preventDefault();
+  params.ui.set(!params.ui());
+  applyUi();
+  syncQuery(params);
+});
+
+const LOOK_AHEAD = 0.6;
+const OVERVIEW = new Vector3(-2, 10, 10);
+
+const raycaster = new Raycaster();
+const pointer = new Vector2();
+const heading = new Vector3();
+
+const MARKER_INTERVAL = 80;
+const walkerPose = { lat: 0, lng: 0, bearing: 0 };
+let lastMarker = 0;
+
+function updateWalkerMarker(force) {
+  const now = performance.now();
+  if (!force && now - lastMarker < MARKER_INTERVAL) return;
+  lastMarker = now;
+  const { x, z } = camera.position;
+  app.pose(x, z, walker.yaw, walkerPose);
+  map.showWalker(walkerPose.lat, walkerPose.lng, walkerPose.bearing);
+}
+
+const walker = new Walker({
+  camera,
+  domElement: renderer.domElement,
+  onFrame: () => {
+    ssao.reset();
+    updateWalkerMarker(false);
+  },
+  onEnd: () => {
+    map.hideWalker();
+    camera.getWorldDirection(heading);
+    controls.target.copy(camera.position).addScaledVector(heading, LOOK_AHEAD);
+    controls.enabled = true;
+    controls.update();
+    ssao.reset();
+  },
+});
+
+function streetView(event) {
+  if (walker.active) return;
+  pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hit = app.pick(raycaster.ray.origin, raycaster.ray.direction);
+  if (!hit) return;
+
+  flight.stop();
+  controls.enabled = false;
+  walker.enter(hit, app.groundSampler());
+  walker.lock();
+  updateWalkerMarker(true);
+  ssao.reset();
+}
+
+function resetView() {
+  flight.stop();
+  walker.exit();
+  camera.position.copy(OVERVIEW);
+  camera.up.set(0, 1, 0);
+  controls.enabled = true;
+  controls.target.set(0, 0, 0);
+  controls.update();
+  ssao.reset();
+}
+
+renderer.domElement.addEventListener("dblclick", streetView);
+renderer.domElement.addEventListener("pointerdown", () => {
+  if (walker.active && !walker.pointerLocked) walker.lock();
+});
+
+const { flightOptions } = buildGui(app, {
+  onSnapshot: () => capture(),
+  areaLabel,
+  sourceLabel,
+  map,
+  onFly: flyOver,
+  onFlyUpdate: updateFlight,
+  onResetView: resetView,
+});
+
+applyUi();
 
 app.addEventListener("changed", () => {
   updateAreaLabel();
+  updateSourceLabel();
+  flight.stop();
+  walker.exit();
   lightCamera.position.set(5, 7.5, -10).normalize().multiplyScalar(30);
   lightCamera.lookAt(scene.position);
   lightCamera.updateMatrixWorld();
-  adjustOrthoToBB(lightCamera, app.bb);
+  lightBB.copy(app.bb).expandByScalar(10.24 / app.area.blocks);
+  adjustOrthoToBB(lightCamera, lightBB);
   ssao.invalidateShadow();
   ssao.reset();
+  const options = flightOptions();
+  if (options.preview) applyFlight(options);
+  else pathPreview.hide();
 });
 
 app.addEventListener("tiles-unavailable", (e) => {
@@ -83,9 +259,10 @@ app.addEventListener("tiles-unavailable", (e) => {
 });
 
 app.addEventListener("progress", (e) => {
-  const { progress } = e.detail;
+  const { progress, loaded, total } = e.detail;
   progressBar.progress = progress;
-  progressBar.style.display = progress > 0 ? "flex" : "none";
+  progressBar.loaded = loaded;
+  progressBar.total = total;
 });
 
 let currentLocation = "";
@@ -168,7 +345,7 @@ function capture() {
 }
 
 function render() {
-  controls.update();
+  if (!flight.update() && !walker.update()) controls.update();
   ssao.render(renderer, scene, camera, lightCamera);
 }
 

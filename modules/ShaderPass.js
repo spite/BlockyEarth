@@ -34,7 +34,7 @@ class ShaderPass {
   }
 
   setSize(width, height) {
-    this.fbo.setSize(width, height);
+    if (!this.screenOnly) this.fbo.setSize(width, height);
     this.orthoQuad.scale.set(width, height, 1);
     this.orthoCamera.left = -width / 2;
     this.orthoCamera.right = width / 2;

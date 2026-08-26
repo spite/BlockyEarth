@@ -20,6 +20,7 @@ class MapBrowser extends LitElement {
     this.lng = 0;
     this.snackbar = null;
     this.marker = null;
+    this.walker = null;
     this.onReady = null;
     this.ready = new Promise((resolve, reject) => {
       this.onReady = resolve;
@@ -164,6 +165,38 @@ class MapBrowser extends LitElement {
     }
   }
 
+  showWalker(lat, lng, bearing) {
+    if (!this.map) return;
+    if (!this.walker) {
+      const icon = L.divIcon({
+        className: "walker-icon",
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
+        html: `<svg viewBox="-17 -17 34 34" width="34" height="34">
+                 <path d="M0 0 L-9 -15 A 17.5 17.5 0 0 1 9 -15 Z" fill="#0f5ea2" fill-opacity=".3"/>
+                 <circle r="5" fill="#0f5ea2" stroke="#fff" stroke-width="2.5"/>
+               </svg>`,
+      });
+      this.walker = L.marker([lat, lng], {
+        icon,
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: 1000,
+      }).addTo(this.map);
+    } else {
+      this.walker.setLatLng([lat, lng]);
+    }
+    const el = this.walker.getElement();
+    if (el) el.style.setProperty("--walker-bearing", `${bearing}deg`);
+  }
+
+  hideWalker() {
+    if (this.walker) {
+      this.map.removeLayer(this.walker);
+      this.walker = null;
+    }
+  }
+
   addMarker(lat, lng) {
     this.moveTo(lat, lng);
     const e = new CustomEvent("map-selection", {
@@ -224,6 +257,11 @@ class MapBrowser extends LitElement {
           top: 0;
           right: 0;
           bottom: 0;
+        }
+        .walker-icon svg {
+          display: block;
+          transform: rotate(var(--walker-bearing, 0deg));
+          transform-origin: 50% 50%;
         }
       </style>
       <link

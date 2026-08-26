@@ -11,8 +11,15 @@ and lit with screen-space ambient occlusion.
 Two sets of tiles are fetched for the chosen location:
 
 - a **colour map**, from whichever tile provider is selected
-- an **elevation map**, from [Nextzen](https://www.nextzen.org/) terrarium tiles,
-  which pack height into the RGB channels
+- an **elevation map**, from whichever elevation provider is selected, as
+  terrarium tiles that pack height into the RGB channels
+
+Both are chosen in the panel. Elevation defaults to **AWS terrain**
+([AWS Open Data](https://registry.opendata.aws/terrain-tiles/)), which needs no
+API key and reaches zoom 15. **Nextzen** serves the same Tilezen data but its
+key is origin-restricted, so it only works from allowed hosts — if the terrain
+comes out flat, that is why. The two agree exactly where both work: Teide across
+9 km reads 1948 m of relief either way.
 
 `HeightMap` samples both on a square or hexagonal grid — averaging a small
 neighbourhood of pixels per block — and drives a single `InstancedMesh`. The vertex
@@ -58,10 +65,18 @@ in the middle of a polar view. And the ground scale is taken from the source
 resolution at the centre latitude, which collapses toward the poles, so it is
 clamped at 85° there; zoom out to bring the whole continent into frame.
 
-Elevation is metric in both projections, so **Exaggeration is a real ratio: 1x is
-the world in true proportion**. Teide at zoom 13 comes out 2913 m of relief
-across a 17 km map, 17% of its own width, which is what it is on the ground.
-2 to 5x is the usual relief-map look.
+Elevation is metric in both projections, so on **Relief: True scale**,
+Exaggeration is a real ratio and 1x is the world in true proportion. Teide at
+zoom 13 comes out 2913 m of relief across a 17 km map, 17% of its own width,
+which is what it is on the ground. 2 to 5x is the usual relief-map look.
+
+True proportion means apparent height swings with the area you pick: at 2x,
+Tenerife across 9 km stands 43% of its own width, the Himalaya across 200 km
+only 8%. **Relief: Fit** (the default) removes that by scaling the measured
+relief to a fixed share of the tile width, so every location and zoom arrives at
+a usable height and Exaggeration stays a multiplier on top. The fit factor is
+capped at 25x so genuinely flat ground is not blown up into noise — the
+Netherlands across 9 km has 55 m of relief and lands at 31% rather than 40%.
 
 ## Running it
 
@@ -150,6 +165,41 @@ all documented public services.
 | `mapbox.js` | tile providers and their zoom limits |
 | `deps/`, `modules/` | small shared helpers |
 
+## Flying over
+
+**Fly over** picks the highest points in the model, keeping them a minimum
+distance apart so they are separate summits rather than neighbouring blocks of
+one peak. **Spots** sets how many it visits, **Altitude** how high above the
+terrain it cruises in metres, and **Banking** rolls the camera into the turns —
+the up vector leans toward the centre of curvature, the way the lift vector does
+on an aircraft. The roll eases with a time constant in seconds rather than a
+fraction per frame, so it settles at the same rate whatever the frame rate.
+
+All three take effect while the flight is running: the path is rebuilt and
+resumed at the same point in the loop, so a slider does something you can see
+rather than waiting for the next takeoff.
+
+The camera glides over the terrain rather than orbiting outside it: a loop that
+passes above the summits, holding a near-constant altitude and looking ahead
+along its own path, biased toward the middle so the ground stays in frame.
+
+Altitude is held rather than tracking the ground because following the terrain
+per point spikes the profile and the vertical wiggle, not the horizontal one,
+dominates the curvature — it drops the median turning radius to 1.4 and reads as
+bobbing. A coarse height field, dilated and smoothed, sets a single cruise
+height that clears every peak by about a block and a half.
+
+The height field is a 64-cell grid read nearest-neighbour, so querying it while
+the camera moves makes the aim point snap as it crosses cells — a jump of up to
+2689 times the normal per-frame step, felt as the view lurching. The ground
+profile along the flight is therefore smoothed once when the path is built and
+read back by interpolation, leaving the aim as continuous as the path itself.
+
+Any click, scroll or keypress ends the flight, as does changing the model.
+The renderer accumulates eight jittered samples for a still camera, so a moving
+one only ever gets the first of those: expect a grainier image while flying,
+resolving as soon as it stops.
+
 ## Exporting
 
 **Download model** bakes the blocks into a single PLY with vertex colours.
@@ -158,7 +208,8 @@ all documented public services.
 ## Credits
 
 Built with [three.js](https://threejs.org/). Tiles from Google, Esri, USGS,
-OpenTopoMap, CartoDB, IGN and NASA GIBS; elevation from Nextzen; the location
+OpenTopoMap, CartoDB, IGN, EOX, GEBCO, EC JRC, OpenSeaMap and NASA GIBS;
+elevation from AWS Open Data terrain tiles and Nextzen; the location
 picker is [Leaflet](https://leafletjs.com/). Brick palette is every
 non-transparent, non-metallic LEGO colour with at least 200 known parts, from
 [Rebrickable](https://rebrickable.com/downloads/)'s colour data.

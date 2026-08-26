@@ -54,11 +54,4 @@ function deltaE(labA, labB) {
   return i < 0 ? 0 : Math.sqrt(i);
 }
 
-function delta(a, b) {
-  const labA = rgb2lab(a);
-  const labB = rgb2lab(b);
-  const dt = deltaE(labA, labB);
-  return dt;
-}
-
-export { delta };
+export { deltaE, rgb2lab };
