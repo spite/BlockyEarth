@@ -95,8 +95,6 @@ float unpackDepth(const in vec4 rgba_depth) {
   return dot(rgba_depth, bit_shift);
 }
 
-// Rotated 8-tap PCF. Keep the tap radius in step with shadowNormalBias:
-// taps reaching past the offset is what brings acne back.
 float shadowFactor(sampler2D shadowMap, vec4 homogeneous, float seed, vec2 fragCoord) {
   vec3 coord = homogeneous.xyz / homogeneous.w;
   if (coord.x < 0. || coord.x > 1. || coord.y < 0. || coord.y > 1. || coord.z > 1.) {
@@ -507,8 +505,6 @@ class SSAO {
     renderer.setRenderTarget(this.shadowFBO);
     renderer.clear();
 
-    // Per-mesh rather than an override, so meshes without the instanced
-    // attributes can supply their own depth material.
     const hidden = [];
     const swapped = [];
     scene.traverse((object) => {

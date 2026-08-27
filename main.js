@@ -78,7 +78,6 @@ function updateAreaLabel() {
 
 const flight = new Flight({
   camera,
-  controls,
   onFrame: () => {
     ssao.reset();
     updateMapMarker(false);
@@ -86,6 +85,9 @@ const flight = new Flight({
   onEnd: () => {
     map.hideWalker();
     ssao.reset();
+    if (cameraMode !== FLYING) return;
+    cameraMode = ORBIT;
+    restoreOrbit(FLYING);
   },
 });
 
@@ -129,16 +131,56 @@ function applyFlight(options) {
   return built;
 }
 
+const ORBIT = "orbit";
+const FLYING = "flying";
+const WALKING = "walking";
+let cameraMode = ORBIT;
+
+function restoreOrbit(from) {
+  camera.up.set(0, 1, 0);
+  if (from === WALKING) {
+    camera.getWorldDirection(heading);
+    controls.target.copy(camera.position).addScaledVector(heading, LOOK_AHEAD);
+  } else {
+    controls.target.set(0, 0, 0);
+  }
+  controls.enabled = true;
+  controls.update();
+}
+
+function setCameraMode(next, options = {}) {
+  const from = cameraMode;
+  if (from === next) return true;
+
+  cameraMode = next;
+  if (from === FLYING) flight.stop();
+  else if (from === WALKING) walker.exit();
+
+  if (next === FLYING) {
+    if (!applyFlight(options)) {
+      cameraMode = ORBIT;
+      if (from !== ORBIT) restoreOrbit(from);
+      snackbar.error("Not enough distinct high points here to build a path.");
+      return false;
+    }
+    controls.enabled = false;
+    flight.start();
+  } else if (next === WALKING) {
+    controls.enabled = false;
+    walker.enter(options.hit, app.groundSampler());
+    walker.lock();
+    updateMapMarker(true);
+  } else {
+    restoreOrbit(from);
+  }
+
+  ssao.reset();
+  return true;
+}
+
 function flyOver(options) {
-  if (flight.playing) {
-    flight.stop();
-    return;
-  }
-  if (!applyFlight(options)) {
-    snackbar.error("Not enough distinct high points here to build a path.");
-    return;
-  }
-  flight.start();
+  if (cameraMode === FLYING) setCameraMode(ORBIT);
+  else setCameraMode(FLYING, options);
 }
 
 function updateFlight(options) {
@@ -186,9 +228,9 @@ function updateMapMarker(force) {
   lastMarker = now;
   const { x, z } = camera.position;
 
-  if (walker.active) {
+  if (cameraMode === WALKING) {
     app.pose(x, z, -Math.sin(walker.yaw), -Math.cos(walker.yaw), cameraPose);
-  } else if (flight.playing) {
+  } else if (cameraMode === FLYING) {
     const heading = flight.headingAt(flight.progress);
     app.pose(x, z, Math.cos(heading), Math.sin(heading), cameraPose);
   } else {
@@ -208,33 +250,25 @@ const walker = new Walker({
   },
   onEnd: () => {
     map.hideWalker();
-    camera.getWorldDirection(heading);
-    controls.target.copy(camera.position).addScaledVector(heading, LOOK_AHEAD);
-    controls.enabled = true;
-    controls.update();
     ssao.reset();
+    if (cameraMode !== WALKING) return;
+    cameraMode = ORBIT;
+    restoreOrbit(WALKING);
   },
 });
 
 function streetView(event) {
-  if (walker.active) return;
+  if (cameraMode === WALKING) return;
   pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
   pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
   const hit = app.pick(raycaster.ray.origin, raycaster.ray.direction);
   if (!hit) return;
-
-  flight.stop();
-  controls.enabled = false;
-  walker.enter(hit, app.groundSampler());
-  walker.lock();
-  updateMapMarker(true);
-  ssao.reset();
+  setCameraMode(WALKING, { hit });
 }
 
 function resetView() {
-  flight.stop();
-  walker.exit();
+  setCameraMode(ORBIT);
   camera.position.copy(OVERVIEW);
   camera.up.set(0, 1, 0);
   controls.enabled = true;
@@ -263,8 +297,7 @@ applyUi();
 app.addEventListener("changed", () => {
   updateAreaLabel();
   updateSourceLabel();
-  flight.stop();
-  walker.exit();
+  setCameraMode(ORBIT);
   const options = flightOptions();
   if (options.preview) {
     applyFlight(options);
@@ -377,7 +410,9 @@ function capture() {
 }
 
 function render() {
-  if (!flight.update() && !walker.update()) controls.update();
+  if (cameraMode === FLYING) flight.update();
+  else if (cameraMode === WALKING) walker.update();
+  else controls.update();
   ssao.render(renderer, scene, camera, lightCamera);
 }
 

@@ -56,7 +56,6 @@ class Walker {
       if (!this.active || document.pointerLockElement !== this.domElement) {
         return;
       }
-      // The first move after a lock reports the jump from the old cursor spot.
       if (this.settling) {
         this.settling = false;
         return;

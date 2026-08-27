@@ -68,9 +68,8 @@ function smooth(values, passes) {
 }
 
 class Flight {
-  constructor({ camera, controls, onFrame, onEnd }) {
+  constructor({ camera, onFrame, onEnd }) {
     this.camera = camera;
-    this.controls = controls;
     this.onFrame = onFrame || (() => {});
     this.onEnd = onEnd || (() => {});
     this.duration = 30;
@@ -244,7 +243,6 @@ class Flight {
     this.playing = true;
     this.startTime = performance.now();
     this.lastFrame = this.startTime;
-    if (this.controls) this.controls.enabled = false;
     return true;
   }
 
@@ -252,11 +250,6 @@ class Flight {
     if (!this.playing) return;
     this.playing = false;
     this.camera.up.copy(this.worldUp);
-    if (this.controls) {
-      this.controls.enabled = true;
-      this.controls.target.set(0, 0, 0);
-      this.controls.update();
-    }
     this.onEnd();
   }
 
@@ -293,7 +286,6 @@ class Flight {
 
     this.camera.position.copy(this.position);
     this.camera.lookAt(this.target);
-    if (this.controls) this.controls.target.copy(this.target);
 
     this.onFrame();
     return true;

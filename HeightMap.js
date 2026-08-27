@@ -128,7 +128,6 @@ class HeightMap {
     return this.boxScale / this.spacing;
   }
 
-  // Vertical metres to world units, matching however the relief is scaled.
   get metresToWorldY() {
     return this.verticalScale * (this.fit ?? 1) * this.metresToWorld;
   }
@@ -466,7 +465,6 @@ class HeightMap {
     return span <= 1 ? 1 : span | 1;
   }
 
-  // The k tallest blocks, tallest first, ties by ascending index.
   tallest(heights, n, k) {
     const heap = new Int32Array(k);
     let size = 0;
@@ -513,8 +511,6 @@ class HeightMap {
     const n = this.pointCount;
     const minDistance = separation * MODEL_WIDTH;
 
-    // Only the top of the pile can win a slot, so rank a slice of it and
-    // widen if the separation rule eats through the whole slice.
     let slice = Math.min(n, Math.max(64, count * 64));
     for (;;) {
       const picked = [];
@@ -536,7 +532,6 @@ class HeightMap {
     }
   }
 
-  // Pass `out` to reuse a buffer you own; its contents are replaced.
   heightField(res = 64, out = null) {
     const count = res * res;
     const cells = out && out.length === count ? out : new Float32Array(count);
