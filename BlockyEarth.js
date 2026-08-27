@@ -72,10 +72,18 @@ const detailLevels = [64, 128, 256, 512, 1024];
 const here = { lat: 0, lng: 0 };
 const ahead = { lat: 0, lng: 0 };
 
+let gapScratch = null;
+
 function closeGaps(cells, res, passes = 2) {
+  const count = res * res;
+  if (!gapScratch || gapScratch.length < count) {
+    gapScratch = new Float32Array(count);
+  }
+  const source = gapScratch;
+
   for (let pass = 0; pass < passes; pass++) {
     let holes = 0;
-    const source = cells.slice();
+    source.set(cells);
     for (let v = 0; v < res; v++) {
       for (let u = 0; u < res; u++) {
         const k = v * res + u;
@@ -124,6 +132,9 @@ class BlockyEarth extends EventTarget {
         })
       );
     };
+
+    this.gridKey = "";
+    this.grid = null;
 
     this.applyParams();
 
@@ -209,8 +220,8 @@ class BlockyEarth extends EventTarget {
     return this.heightMap.findPeaks(count);
   }
 
-  heightField(res) {
-    return this.heightMap.heightField(res);
+  heightField(res, out) {
+    return this.heightMap.heightField(res, out);
   }
 
   pose(x, z, dirX, dirZ, out = { lat: 0, lng: 0, bearing: 0 }) {
@@ -244,9 +255,14 @@ class BlockyEarth extends EventTarget {
   surfaceGrid() {
     const heightMap = this.heightMap;
     const res = Math.min(512, Math.max(64, heightMap.blocks));
-    const field = heightMap.heightField(res);
-    closeGaps(field.cells, res);
-    return { ...field, rise: 0.5 * heightMap.boxScale };
+    const key = `${heightMap.revision}|${res}`;
+    if (this.gridKey !== key) {
+      const field = heightMap.heightField(res);
+      closeGaps(field.cells, res);
+      this.grid = { ...field, rise: 0.5 * heightMap.boxScale };
+      this.gridKey = key;
+    }
+    return this.grid;
   }
 
   groundSampler() {

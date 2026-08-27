@@ -90,6 +90,7 @@ class HeightMap {
     this.bb = new Box3(new Vector3(0, 0, 0), new Vector3(0, 0, 0));
 
     this.generation = 0;
+    this.revision = 0;
     this.builtPointsKey = "";
     this.builtMeshKey = "";
     this.projectorKey = "";
@@ -465,37 +466,81 @@ class HeightMap {
     return span <= 1 ? 1 : span | 1;
   }
 
+  // The k tallest blocks, tallest first, ties by ascending index.
+  tallest(heights, n, k) {
+    const heap = new Int32Array(k);
+    let size = 0;
+
+    for (let i = 0; i < n; i++) {
+      if (size === k) {
+        if (heights[i] <= heights[heap[0]]) continue;
+        heap[0] = i;
+        let parent = 0;
+        for (;;) {
+          const left = 2 * parent + 1;
+          const right = left + 1;
+          let small = parent;
+          if (left < k && heights[heap[left]] < heights[heap[small]]) small = left;
+          if (right < k && heights[heap[right]] < heights[heap[small]]) small = right;
+          if (small === parent) break;
+          const swap = heap[parent];
+          heap[parent] = heap[small];
+          heap[small] = swap;
+          parent = small;
+        }
+        continue;
+      }
+      heap[size] = i;
+      let child = size++;
+      while (child > 0) {
+        const parent = (child - 1) >> 1;
+        if (heights[heap[parent]] <= heights[heap[child]]) break;
+        const swap = heap[parent];
+        heap[parent] = heap[child];
+        heap[child] = swap;
+        child = parent;
+      }
+    }
+
+    const out = Array.from(heap.subarray(0, size));
+    out.sort((a, b) => heights[b] - heights[a] || a - b);
+    return out;
+  }
+
   findPeaks(count = 6, separation = 0.18) {
     if (!this.mesh || !this.pointCount) return [];
     const heights = this.mesh.geometry.attributes.height.array;
     const n = this.pointCount;
-
-    const order = new Int32Array(n);
-    for (let i = 0; i < n; i++) order[i] = i;
-    const pool = Array.prototype.slice
-      .call(order)
-      .sort((a, b) => heights[b] - heights[a]);
-
     const minDistance = separation * MODEL_WIDTH;
-    const picked = [];
-    for (const i of pool) {
-      if (picked.length >= count) break;
-      const x = this.pointX[i];
-      const z = this.pointZ[i];
-      let clear = true;
-      for (const p of picked) {
-        if (Math.hypot(p.x - x, p.z - z) < minDistance) {
-          clear = false;
-          break;
+
+    // Only the top of the pile can win a slot, so rank a slice of it and
+    // widen if the separation rule eats through the whole slice.
+    let slice = Math.min(n, Math.max(64, count * 64));
+    for (;;) {
+      const picked = [];
+      for (const i of this.tallest(heights, n, slice)) {
+        if (picked.length >= count) break;
+        const x = this.pointX[i];
+        const z = this.pointZ[i];
+        let clear = true;
+        for (const p of picked) {
+          if (Math.hypot(p.x - x, p.z - z) < minDistance) {
+            clear = false;
+            break;
+          }
         }
+        if (clear) picked.push({ x, y: heights[i], z });
       }
-      if (clear) picked.push({ x, y: heights[i], z });
+      if (picked.length >= count || slice >= n) return picked;
+      slice = Math.min(n, slice * 4);
     }
-    return picked;
   }
 
-  heightField(res = 64) {
-    const cells = new Float32Array(res * res);
+  // Pass `out` to reuse a buffer you own; its contents are replaced.
+  heightField(res = 64, out = null) {
+    const count = res * res;
+    const cells = out && out.length === count ? out : new Float32Array(count);
+    if (cells === out) cells.fill(0);
     if (!this.mesh || !this.pointCount) return { res, size: MODEL_WIDTH, cells };
     const heights = this.mesh.geometry.attributes.height.array;
     const half = MODEL_WIDTH / 2;
@@ -690,6 +735,7 @@ class HeightMap {
       }
     }
 
+    this.revision++;
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
     this.mesh.geometry.attributes.height.needsUpdate = true;
   }

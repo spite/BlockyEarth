@@ -83,6 +83,51 @@ void main() {
   vShadowCoord = biasMatrix * shadowProjectionMatrix * shadowViewMatrix * shadowPos;
 }`;
 
+const shadowChunk = `
+const float shadowBias = 0.0002;
+
+float random(vec2 n) {
+  return fract(sin(dot(n.xy, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+float unpackDepth(const in vec4 rgba_depth) {
+  const vec4 bit_shift = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
+  return dot(rgba_depth, bit_shift);
+}
+
+// Rotated 8-tap PCF. Keep the tap radius in step with shadowNormalBias:
+// taps reaching past the offset is what brings acne back.
+float shadowFactor(sampler2D shadowMap, vec4 homogeneous, float seed, vec2 fragCoord) {
+  vec3 coord = homogeneous.xyz / homogeneous.w;
+  if (coord.x < 0. || coord.x > 1. || coord.y < 0. || coord.y > 1. || coord.z > 1.) {
+    return 1.;
+  }
+
+  vec2 taps[8];
+  taps[0] = vec2(0.5625, 0.4375);
+  taps[1] = vec2(0.0625, 0.9375);
+  taps[2] = vec2(0.3125, 0.6875);
+  taps[3] = vec2(0.6875, 0.8124);
+  taps[4] = vec2(0.8125, 0.1875);
+  taps[5] = vec2(0.9375, 0.5625);
+  taps[6] = vec2(0.4375, 0.0625);
+  taps[7] = vec2(0.1875, 0.3125);
+
+  vec2 resolution = vec2(textureSize(shadowMap, 0));
+  float ang = random(fragCoord + vec2(seed * 17.13)) * 6.2831853;
+  float cs = cos(ang);
+  float sn = sin(ang);
+  mat2 rot = mat2(cs, -sn, sn, cs);
+
+  float shadow = 0.;
+  for (int i = 0; i < 8; i++) {
+    vec2 tap = rot * (taps[i] - 0.5) * 4.0 / resolution;
+    float depth = unpackDepth(texture(shadowMap, coord.xy + tap));
+    shadow += step(coord.z, depth + shadowBias);
+  }
+  return shadow / 8.;
+}`;
+
 const fragmentShader = `precision highp float;
 
 layout(location = 0) out vec4 color;
@@ -111,37 +156,7 @@ float linearizeDepth(float z) {
 
 ${hsl}
 
-const float bias = 0.0002;
-
-float random(vec4 seed4){
-  float dot_product = dot(seed4, vec4(12.9898,78.233,45.164,94.673));
-  return fract(sin(dot_product) * 43758.5453);
-}
-
-float random(vec2 n){
-	return fract(sin(dot(n.xy, vec2(12.9898, 78.233)))* 43758.5453);
-}
-
-float unpackDepth( const in vec4 rgba_depth ) {
-  const vec4 bit_shift = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
-  return dot(rgba_depth, bit_shift);
-}
-
-float sampleVisibility(vec3 coord) {
-  float depth = unpackDepth(texture(shadowMap, coord.xy));
-  return step(coord.z, depth + bias);
-}
-
-vec3 random3(vec3 c) {
-	float j = 4096.0*sin(dot(c,vec3(17.0, 59.4, 15.0)));
-	vec3 r;
-	r.z = fract(512.0*j);
-	j *= .125;
-	r.x = fract(512.0*j);
-	j *= .125;
-	r.y = fract(512.0*j);
-	return r-0.5;
-}
+${shadowChunk}
 
 ${softLight}
 
@@ -166,21 +181,9 @@ void main() {
   vec3 ld = normalize(lDir);
   float diffuse = max(0., dot(n, ld));
 
-  vec2 shadowResolution = vec2(textureSize(shadowMap, 0));
-
   float shadow = 1.;
-	vec3 shadowCoord = vShadowCoord.xyz / vShadowCoord.w;
-  if( diffuse > 0. && shadowCoord.x >= 0. && shadowCoord.x <= 1. && shadowCoord.y >= 0. && shadowCoord.y <= 1. && shadowCoord.z <= 1. ) {
-    float ang = random(gl_FragCoord.xy + vec2(sampleIndex * 17.13)) * 6.2831853;
-    float cs = cos(ang);
-    float sn = sin(ang);
-    mat2 rot = mat2(cs, -sn, sn, cs);
-    shadow = 0.;
-    for(int i=0; i<8; i++) {
-      vec2 tap = rot * (jitterTable[i] - 0.5) * 4.0 / shadowResolution;
-      shadow += sampleVisibility(shadowCoord + vec3(tap, 0.));
-    }
-    shadow /= 8.;
+  if (diffuse > 0.) {
+    shadow = shadowFactor(shadowMap, vShadowCoord, sampleIndex, gl_FragCoord.xy);
   }
   
   vec3 e = normalize(-vPosition.xyz);
@@ -607,4 +610,4 @@ class SSAO {
   }
 }
 
-export { SSAO };
+export { SSAO, shadowChunk };

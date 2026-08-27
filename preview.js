@@ -1,3 +1,4 @@
+import { shadowChunk } from "./SSAO.js";
 import {
   Box3,
   Group,
@@ -65,56 +66,20 @@ layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outPosition;
 layout(location = 2) out vec4 outNormal;
 
-const float bias = 0.0002;
-
 float linearizeDepth(float z) {
   return (2.0 * near) / (far + near - z * (far - near));
 }
 
-float random(vec2 n) {
-  return fract(sin(dot(n.xy, vec2(12.9898, 78.233))) * 43758.5453);
-}
-
-float unpackDepth(const in vec4 rgba_depth) {
-  const vec4 bit_shift = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
-  return dot(rgba_depth, bit_shift);
-}
-
-float sampleVisibility(vec3 coord) {
-  float depth = unpackDepth(texture(shadowMap, coord.xy));
-  return step(coord.z, depth + bias);
-}
+${shadowChunk}
 
 void main() {
   vec3 n = normalize(vNormal);
   vec3 ld = normalize(lDir);
   float diffuse = max(0., dot(n, ld));
 
-  vec2 shadowResolution = vec2(textureSize(shadowMap, 0));
-  vec3 shadowCoord = vShadowCoord.xyz / vShadowCoord.w;
   float shadow = 1.;
-  if (diffuse > 0. && shadowCoord.x >= 0. && shadowCoord.x <= 1. &&
-      shadowCoord.y >= 0. && shadowCoord.y <= 1. && shadowCoord.z <= 1.) {
-    vec2 jitterTable[8];
-    jitterTable[0] = vec2(0.5625, 0.4375);
-    jitterTable[1] = vec2(0.0625, 0.9375);
-    jitterTable[2] = vec2(0.3125, 0.6875);
-    jitterTable[3] = vec2(0.6875, 0.8124);
-    jitterTable[4] = vec2(0.8125, 0.1875);
-    jitterTable[5] = vec2(0.9375, 0.5625);
-    jitterTable[6] = vec2(0.4375, 0.0625);
-    jitterTable[7] = vec2(0.1875, 0.3125);
-
-    float ang = random(gl_FragCoord.xy + vec2(sampleIndex * 17.13)) * 6.2831853;
-    float cs = cos(ang);
-    float sn = sin(ang);
-    mat2 rot = mat2(cs, -sn, sn, cs);
-    shadow = 0.;
-    for (int i = 0; i < 8; i++) {
-      vec2 tap = rot * (jitterTable[i] - 0.5) * 4.0 / shadowResolution;
-      shadow += sampleVisibility(shadowCoord + vec3(tap, 0.));
-    }
-    shadow /= 8.;
+  if (diffuse > 0.) {
+    shadow = shadowFactor(shadowMap, vShadowCoord, sampleIndex, gl_FragCoord.xy);
   }
 
   float lit = .55 + .45 * diffuse * shadow;

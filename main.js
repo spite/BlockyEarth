@@ -89,6 +89,9 @@ const flight = new Flight({
   },
 });
 
+const FLIGHT_FIELD_RES = 64;
+const flightCells = new Float32Array(FLIGHT_FIELD_RES * FLIGHT_FIELD_RES);
+
 const pathPreview = new PathPreview(ssao);
 scene.add(pathPreview.group);
 
@@ -99,7 +102,7 @@ function buildFlight({ spots, height, banking }) {
   flight.banking = banking;
   return flight.build(
     lastPeaks,
-    app.heightField(),
+    app.heightField(FLIGHT_FIELD_RES, flightCells),
     height * app.metresToWorldY
   );
 }
