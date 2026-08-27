@@ -107,6 +107,7 @@ class HeightMap {
   }
 
   setArea(lat, lng, span) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !(span > 0)) return;
     if (this.lat === lat && this.lng === lng && this.span === span) return;
     this.invalidated = true;
     this.lat = lat;
@@ -124,6 +125,11 @@ class HeightMap {
 
   get metresToWorld() {
     return this.boxScale / this.spacing;
+  }
+
+  // Vertical metres to world units, matching however the relief is scaled.
+  get metresToWorldY() {
+    return this.verticalScale * (this.fit ?? 1) * this.metresToWorld;
   }
 
   get scaleLat() {

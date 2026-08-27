@@ -503,17 +503,44 @@ class SSAO {
     this.depthMaterial.uniforms.far.value = camera.far;
     renderer.setRenderTarget(this.shadowFBO);
     renderer.clear();
-    scene.overrideMaterial = this.depthMaterial;
+
+    // Per-mesh rather than an override, so meshes without the instanced
+    // attributes can supply their own depth material.
     const hidden = [];
+    const swapped = [];
     scene.traverse((object) => {
       if (object.userData.noShadow && object.visible) {
         object.visible = false;
         hidden.push(object);
+        return;
       }
+      if (!object.isMesh) return;
+      swapped.push([object, object.material]);
+      object.material = object.userData.depthMaterial ?? this.depthMaterial;
     });
+
     renderer.render(scene, camera);
+
+    for (const [object, material] of swapped) object.material = material;
     for (const object of hidden) object.visible = true;
-    scene.overrideMaterial = null;
+  }
+
+  get shadowUniforms() {
+    const u = this.shader.uniforms;
+    return {
+      lightPos: u.lightPos,
+      shadowMap: u.shadowMap,
+      shadowViewMatrix: u.shadowViewMatrix,
+      shadowProjectionMatrix: u.shadowProjectionMatrix,
+      shadowNormalBias: u.shadowNormalBias,
+      sampleIndex: u.sampleIndex,
+      near: u.near,
+      far: u.far,
+    };
+  }
+
+  get depthUniforms() {
+    return this.depthMaterial.uniforms;
   }
 
   get backgroundColor() {

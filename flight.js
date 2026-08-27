@@ -110,12 +110,16 @@ class Flight {
   }
 
   build(spots, field, lift = MODEL_WIDTH * this.clearance) {
-    if (spots.length < 3) {
+    const usable = spots.filter(
+      (p) =>
+        Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z)
+    );
+    if (usable.length < 3 || !Number.isFinite(lift)) {
       this.path = null;
       return false;
     }
     this.field = field;
-    const ordered = [...spots].sort(
+    const ordered = [...usable].sort(
       (a, b) => Math.atan2(a.z, a.x) - Math.atan2(b.z, b.x)
     );
     this.spots = ordered;
@@ -278,9 +282,8 @@ class Flight {
       const wanted = Math.max(-this.bankLimit, Math.min(this.bankLimit, turn));
       const k = 1 - Math.exp(-dt / this.bankResponse);
       this.bank += (wanted - this.bank) * k;
-      this.tangent
-        .subVectors(this.ahead, this.position)
-        .normalize();
+      const heading = this.headingAt(t);
+      this.tangent.set(Math.cos(heading), 0, Math.sin(heading));
       this.up.copy(this.worldUp).applyAxisAngle(this.tangent, this.bank);
       this.camera.up.copy(this.up);
     } else {

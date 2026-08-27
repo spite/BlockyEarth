@@ -79,29 +79,49 @@ function updateAreaLabel() {
 const flight = new Flight({
   camera,
   controls,
-  onFrame: () => ssao.reset(),
-  onEnd: () => ssao.reset(),
+  onFrame: () => {
+    ssao.reset();
+    updateMapMarker(false);
+  },
+  onEnd: () => {
+    map.hideWalker();
+    ssao.reset();
+  },
 });
 
-const pathPreview = new PathPreview();
+const pathPreview = new PathPreview(ssao);
 scene.add(pathPreview.group);
 
 let lastPeaks = [];
 
 function buildFlight({ spots, height, banking }) {
   lastPeaks = app.findPeaks(spots);
-  const { span } = app.area;
   flight.banking = banking;
-  return flight.build(lastPeaks, app.heightField(), (height * 10.24) / span);
+  return flight.build(
+    lastPeaks,
+    app.heightField(),
+    height * app.metresToWorldY
+  );
+}
+
+function fitLight() {
+  lightCamera.position.set(5, 7.5, -10).normalize().multiplyScalar(30);
+  lightCamera.lookAt(scene.position);
+  lightCamera.updateMatrixWorld();
+  lightBB.copy(app.bb).expandByScalar(10.24 / app.area.blocks);
+  if (pathPreview.visible) lightBB.union(pathPreview.bounds());
+  adjustOrthoToBB(lightCamera, lightBB);
+  ssao.invalidateShadow();
 }
 
 function applyFlight(options) {
   const built = buildFlight(options);
   if (options.preview && built) {
-    pathPreview.show(flight.path, lastPeaks, camera);
+    pathPreview.show(flight.path, lastPeaks);
   } else {
     pathPreview.hide();
   }
+  fitLight();
   ssao.reset();
   return built;
 }
@@ -124,23 +144,15 @@ function updateFlight(options) {
   if (applyFlight(options) && flight.playing) flight.resume(at);
 }
 
-for (const event of ["pointerdown", "wheel"]) {
-  window.addEventListener(event, () => flight.stop(), { passive: true });
-}
-
-window.addEventListener(
-  "keydown",
-  (e) => {
-    if (e.key === "Tab") return;
-    flight.stop();
-  },
-  { passive: true }
-);
-
 const tools = document.querySelector("#tools");
 
 function applyUi() {
-  tools.classList.toggle("hidden", !params.ui());
+  const visible = params.ui();
+  tools.classList.toggle("hidden", !visible);
+  if (visible && map.map) {
+    map.map.invalidateSize();
+    map.frameArea(app.area);
+  }
 }
 
 window.addEventListener("keydown", (e) => {
@@ -153,6 +165,7 @@ window.addEventListener("keydown", (e) => {
   syncQuery(params);
 });
 
+const DEFAULT_SPAN = 10000;
 const LOOK_AHEAD = 0.6;
 const OVERVIEW = new Vector3(-2, 10, 10);
 
@@ -161,16 +174,26 @@ const pointer = new Vector2();
 const heading = new Vector3();
 
 const MARKER_INTERVAL = 80;
-const walkerPose = { lat: 0, lng: 0, bearing: 0 };
+const cameraPose = { lat: 0, lng: 0, bearing: 0 };
 let lastMarker = 0;
 
-function updateWalkerMarker(force) {
+function updateMapMarker(force) {
   const now = performance.now();
   if (!force && now - lastMarker < MARKER_INTERVAL) return;
   lastMarker = now;
   const { x, z } = camera.position;
-  app.pose(x, z, walker.yaw, walkerPose);
-  map.showWalker(walkerPose.lat, walkerPose.lng, walkerPose.bearing);
+
+  if (walker.active) {
+    app.pose(x, z, -Math.sin(walker.yaw), -Math.cos(walker.yaw), cameraPose);
+  } else if (flight.playing) {
+    const heading = flight.headingAt(flight.progress);
+    app.pose(x, z, Math.cos(heading), Math.sin(heading), cameraPose);
+  } else {
+    map.hideWalker();
+    return;
+  }
+
+  map.showWalker(cameraPose.lat, cameraPose.lng, cameraPose.bearing);
 }
 
 const walker = new Walker({
@@ -178,7 +201,7 @@ const walker = new Walker({
   domElement: renderer.domElement,
   onFrame: () => {
     ssao.reset();
-    updateWalkerMarker(false);
+    updateMapMarker(false);
   },
   onEnd: () => {
     map.hideWalker();
@@ -202,7 +225,7 @@ function streetView(event) {
   controls.enabled = false;
   walker.enter(hit, app.groundSampler());
   walker.lock();
-  updateWalkerMarker(true);
+  updateMapMarker(true);
   ssao.reset();
 }
 
@@ -239,16 +262,14 @@ app.addEventListener("changed", () => {
   updateSourceLabel();
   flight.stop();
   walker.exit();
-  lightCamera.position.set(5, 7.5, -10).normalize().multiplyScalar(30);
-  lightCamera.lookAt(scene.position);
-  lightCamera.updateMatrixWorld();
-  lightBB.copy(app.bb).expandByScalar(10.24 / app.area.blocks);
-  adjustOrthoToBB(lightCamera, lightBB);
-  ssao.invalidateShadow();
-  ssao.reset();
   const options = flightOptions();
-  if (options.preview) applyFlight(options);
-  else pathPreview.hide();
+  if (options.preview) {
+    applyFlight(options);
+  } else {
+    pathPreview.hide();
+    fitLight();
+  }
+  ssao.reset();
 });
 
 app.addEventListener("tiles-unavailable", (e) => {
@@ -275,12 +296,20 @@ async function load(lat, lng, span) {
 
 function readHash() {
   const [lat, lng, span] = window.location.hash.substring(1).split(",");
-  if (!lat || !lng || !span) return null;
-  return {
+  const area = {
     lat: parseFloat(lat),
     lng: parseFloat(lng),
     span: parseFloat(span),
   };
+  if (
+    !Number.isFinite(area.lat) ||
+    !Number.isFinite(area.lng) ||
+    Math.abs(area.lat) > 90
+  ) {
+    return null;
+  }
+  if (!(area.span > 0)) area.span = DEFAULT_SPAN;
+  return area;
 }
 
 function writeHash(area) {
@@ -317,7 +346,7 @@ map.onViewChange = () => {
 window.addEventListener("map-selection", (e) => {
   const { lat, lng } = e.detail.latLng;
   const area = map.captureArea();
-  writeHash({ lat, lng, span: area ? area.span : 10000 });
+  writeHash({ lat, lng, span: area ? area.span : DEFAULT_SPAN });
 });
 
 window.addEventListener("hashchange", goToHash);

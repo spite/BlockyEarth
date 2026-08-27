@@ -145,6 +145,8 @@ class MapBrowser extends LitElement {
 
   captureArea() {
     if (!this.map) return null;
+    const size = this.map.getSize();
+    if (!size || size.x < 2 || size.y < 2) return null;
     const bounds = this.map.getBounds();
     const centre = bounds.getCenter();
     const width = this.map
@@ -156,7 +158,9 @@ class MapBrowser extends LitElement {
       [bounds.getSouth(), centre.lng],
       [bounds.getNorth(), centre.lng]
     );
-    return { lat: centre.lat, lng: centre.lng, span: Math.min(width, height) };
+    const span = Math.min(width, height);
+    if (!(span > 0)) return null;
+    return { lat: centre.lat, lng: centre.lng, span };
   }
 
   removeMarker() {

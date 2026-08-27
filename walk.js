@@ -28,7 +28,9 @@ class Walker {
     this.damping = 11;
     this.groundResponse = 14;
     this.lookSpeed = 0.0022;
+    this.maxDelta = 120;
     this.maxPitch = HALF_PI * 0.95;
+    this.settling = false;
 
     this.yaw = 0;
     this.pitch = 0;
@@ -54,13 +56,25 @@ class Walker {
       if (!this.active || document.pointerLockElement !== this.domElement) {
         return;
       }
-      this.yaw -= e.movementX * this.lookSpeed;
-      this.pitch -= e.movementY * this.lookSpeed;
+      // The first move after a lock reports the jump from the old cursor spot.
+      if (this.settling) {
+        this.settling = false;
+        return;
+      }
+      const limit = this.maxDelta;
+      const dx = Math.max(-limit, Math.min(limit, e.movementX || 0));
+      const dy = Math.max(-limit, Math.min(limit, e.movementY || 0));
+      this.yaw -= dx * this.lookSpeed;
+      this.pitch -= dy * this.lookSpeed;
       this.pitch = Math.max(-this.maxPitch, Math.min(this.maxPitch, this.pitch));
     };
     this.onLockChange = () => {
       if (!this.active) return;
-      if (document.pointerLockElement !== this.domElement) this.exit();
+      if (document.pointerLockElement === this.domElement) {
+        this.settling = true;
+        return;
+      }
+      this.exit();
     };
   }
 
@@ -71,6 +85,7 @@ class Walker {
   enter(point, ground) {
     this.ground = ground;
     this.active = true;
+    this.settling = true;
     this.keys.clear();
     this.velocity.set(0, 0, 0);
 

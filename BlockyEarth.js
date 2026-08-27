@@ -153,6 +153,10 @@ class BlockyEarth extends EventTarget {
     return { lat, lng, span, spacing, blocks };
   }
 
+  get metresToWorldY() {
+    return this.heightMap.metresToWorldY;
+  }
+
   changed() {
     this.dispatchEvent(new CustomEvent("changed"));
   }
@@ -209,13 +213,14 @@ class BlockyEarth extends EventTarget {
     return this.heightMap.heightField(res);
   }
 
-  pose(x, z, yaw, out = { lat: 0, lng: 0, bearing: 0 }) {
+  pose(x, z, dirX, dirZ, out = { lat: 0, lng: 0, bearing: 0 }) {
     const heightMap = this.heightMap;
     const step = 0.05;
+    const length = Math.hypot(dirX, dirZ) || 1;
     heightMap.worldToLatLng(x, z, here);
     heightMap.worldToLatLng(
-      x - Math.sin(yaw) * step,
-      z - Math.cos(yaw) * step,
+      x + (dirX / length) * step,
+      z + (dirZ / length) * step,
       ahead
     );
 
