@@ -170,7 +170,7 @@ all documented public services.
 **Fly over** picks the highest points in the model, keeping them a minimum
 distance apart so they are separate summits rather than neighbouring blocks of
 one peak. **Spots** sets how many it visits, **Altitude** how high above the
-terrain it cruises in metres, and **Banking** rolls the camera into the turns —
+terrain it cruises, and **Banking** rolls the camera into the turns —
 the up vector leans toward the centre of curvature, the way the lift vector does
 on an aircraft. The roll eases with a time constant in seconds rather than a
 fraction per frame, so it settles at the same rate whatever the frame rate.
@@ -188,6 +188,16 @@ per point spikes the profile and the vertical wiggle, not the horizontal one,
 dominates the curvature — it drops the median turning radius to 1.4 and reads as
 bobbing. A coarse height field, dilated and smoothed, sets a single cruise
 height that clears every peak by about a block and a half.
+
+Altitude is a share of the model's own finished height rather than a figure in
+metres. Metres cannot work here: the vertical axis stops being metric once Fit
+and Exaggeration are applied, and both swing wildly with the area. Paris has
+only 163 m of relief across 18 km, so it earns a 22x fit, and a 5000 m cruise
+converted through that scale sat 31 units above a model 10.24 wide — 31 times
+the height of the terrain it was meant to be skimming, and 251 units at 4x
+Exaggeration. Measuring against the terrain's finished height instead holds the
+path at a steady 1.15 to 1.4 times the model height everywhere tested, from
+Paris at 0.5x to Tenerife at 20x.
 
 The height field is a 64-cell grid read nearest-neighbour, so querying it while
 the camera moves makes the aim point snap as it crosses cells — a jump of up to

@@ -29,7 +29,7 @@ const defaults = {
   projection: "corrected",
   handPlaced: false,
   spots: 6,
-  flightHeight: 1200,
+  flightAltitude: 0.4,
   banking: true,
   previewPath: false,
   palette: false,
@@ -206,7 +206,7 @@ function buildGui(app, {
 
   const flightOptions = () => ({
     spots: params.spots(),
-    height: params.flightHeight(),
+    height: params.flightAltitude(),
     banking: params.banking(),
     preview: params.previewPath(),
   });
@@ -219,9 +219,8 @@ function buildGui(app, {
     title: "How many high points the flight visits",
     onChange: liveFlight,
   });
-  gui.addSlider("Altitude", params.flightHeight, 50, 5000, 10, {
-    curve: "log",
-    title: "Metres above the terrain",
+  gui.addSlider("Altitude", params.flightAltitude, 0.05, 2, 0.05, {
+    title: "Height above the terrain, as a share of the model's own height",
     onChange: liveFlight,
   });
   gui.addCheckbox("Banking", params.banking, {
