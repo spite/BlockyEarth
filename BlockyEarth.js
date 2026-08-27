@@ -336,8 +336,8 @@ class BlockyEarth extends EventTarget {
     return null;
   }
 
-  bake() {
-    this.heightMap.bake();
+  bake(format) {
+    return this.heightMap.bake(format);
   }
 }
 

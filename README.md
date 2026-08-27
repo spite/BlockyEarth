@@ -195,14 +195,20 @@ the camera moves makes the aim point snap as it crosses cells — a jump of up t
 profile along the flight is therefore smoothed once when the path is built and
 read back by interpolation, leaving the aim as continuous as the path itself.
 
-Any click, scroll or keypress ends the flight, as does changing the model.
+**Fly over** is a toggle: the button reads **Stop** while a flight is running,
+and pressing it again — or **Esc** — lands. Changing the model ends it too.
 The renderer accumulates eight jittered samples for a still camera, so a moving
 one only ever gets the first of those: expect a grainier image while flying,
 resolving as soon as it stops.
 
 ## Exporting
 
-**Download model** bakes the blocks into a single PLY with vertex colours.
+**Download** bakes the blocks into a single mesh. **Format** picks what comes
+out: **PLY** with vertex colours, or **GLB**, which most 3D tools open directly.
+Every block is merged into one geometry rather than one mesh each, so the file
+stays a single object and the exporters do not have to walk tens of thousands of
+nodes. The button reads **Exporting…** and is disabled while it works; the page
+stops responding for the duration, since the exporters run on the main thread.
 **Snapshot** saves the current frame as a PNG.
 
 ## Credits

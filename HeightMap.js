@@ -7,10 +7,10 @@ import {
   Vector3,
   Scene,
   Mesh,
-  Quaternion,
   Matrix4,
   Box3,
   BufferAttribute,
+  BufferGeometry,
   IcosahedronBufferGeometry,
 } from "./third_party/three.module.js";
 import { RoundedBoxGeometry } from "./third_party/RoundedBoxGeometry.js";
@@ -737,40 +737,72 @@ class HeightMap {
 
   buildExportScene() {
     const scene = new Scene();
-    const material = new MeshBasicMaterial({ vertexColors: true });
+    const base = this.geo.clone();
+    base.deleteAttribute("height");
+
+    const count = this.mesh.count;
+    const srcPos = base.attributes.position.array;
+    const srcNormal = base.attributes.normal ? base.attributes.normal.array : null;
+    const srcIndex = base.index;
+    const verts = base.attributes.position.count;
+    const indexCount = srcIndex ? srcIndex.count : 0;
+    const total = count * verts;
+
+    const positions = new Float32Array(total * 3);
+    const normals = srcNormal ? new Float32Array(total * 3) : null;
+    const colors = new Float32Array(total * 3);
+    const indices = srcIndex
+      ? total > 65535
+        ? new Uint32Array(count * indexCount)
+        : new Uint16Array(count * indexCount)
+      : null;
+
     const mat = new Matrix4();
-    const position = new Vector3();
-    const quaternion = new Quaternion();
-    const scale = new Vector3();
     const c = new Color();
     const heights = this.mesh.geometry.attributes.height.array;
 
-    for (let i = 0; i < this.mesh.count; i++) {
-      const geo = this.geo.clone();
-      geo.deleteAttribute("height");
+    for (let i = 0; i < count; i++) {
       this.mesh.getMatrixAt(i, mat);
       this.mesh.getColorAt(i, c);
+      const tx = mat.elements[12];
+      const ty = mat.elements[13];
+      const tz = mat.elements[14];
+      const rise = heights[i];
+      const vertBase = i * verts;
 
-      const colors = new Float32Array(geo.attributes.position.count * 3);
-      for (let j = 0; j < colors.length; j += 3) {
-        colors[j] = c.r;
-        colors[j + 1] = c.g;
-        colors[j + 2] = c.b;
-      }
-      geo.setAttribute("color", new BufferAttribute(colors, 3));
-
-      const pos = geo.attributes.position;
-      for (let j = 0; j < pos.count; j++) {
-        if (pos.getY(j) >= 0) {
-          pos.setY(j, pos.getY(j) + heights[i]);
+      for (let j = 0; j < verts; j++) {
+        const from = j * 3;
+        const to = (vertBase + j) * 3;
+        const y = srcPos[from + 1];
+        positions[to] = srcPos[from] + tx;
+        positions[to + 1] = (y >= 0 ? y + rise : y) + ty;
+        positions[to + 2] = srcPos[from + 2] + tz;
+        colors[to] = c.r;
+        colors[to + 1] = c.g;
+        colors[to + 2] = c.b;
+        if (normals) {
+          normals[to] = srcNormal[from];
+          normals[to + 1] = srcNormal[from + 1];
+          normals[to + 2] = srcNormal[from + 2];
         }
       }
 
-      mat.decompose(position, quaternion, scale);
-      geo.translate(position.x, position.y, position.z);
-      scene.add(new Mesh(geo, material));
+      if (indices) {
+        const indexBase = i * indexCount;
+        for (let j = 0; j < indexCount; j++) {
+          indices[indexBase + j] = srcIndex.getX(j) + vertBase;
+        }
+      }
     }
 
+    const merged = new BufferGeometry();
+    merged.setAttribute("position", new BufferAttribute(positions, 3));
+    if (normals) merged.setAttribute("normal", new BufferAttribute(normals, 3));
+    merged.setAttribute("color", new BufferAttribute(colors, 3));
+    if (indices) merged.setIndex(new BufferAttribute(indices, 1));
+
+    scene.add(new Mesh(merged, new MeshBasicMaterial({ vertexColors: true })));
+    base.dispose();
     return scene;
   }
 
@@ -780,39 +812,53 @@ class HeightMap {
     )}m`;
   }
 
-  bake() {
-    this.bakePLY();
-    // this.bakeGLTF();
+  bake(format = "ply") {
+    return format === "glb" ? this.bakeGLTF() : this.bakePLY();
   }
 
   bakeGLTF() {
-    const exporter = new GLTFExporter();
-    exporter.parse(
-      this.buildExportScene(),
-      (result) => {
-        if (result instanceof ArrayBuffer) {
-          downloadArrayBuffer(result, `${this.exportName}.glb`);
-        } else {
-          downloadStr(JSON.stringify(result, null, 2), `${this.exportName}.gltf`);
-        }
-      },
-      { binary: true }
-    );
+    return new Promise((resolve, reject) => {
+      try {
+        new GLTFExporter().parse(
+          this.buildExportScene(),
+          (result) => {
+            if (result instanceof ArrayBuffer) {
+              downloadArrayBuffer(result, `${this.exportName}.glb`);
+            } else {
+              downloadStr(
+                JSON.stringify(result, null, 2),
+                `${this.exportName}.gltf`
+              );
+            }
+            resolve();
+          },
+          { binary: true }
+        );
+      } catch (e) {
+        reject(e);
+      }
+    });
   }
 
   bakePLY() {
-    const exporter = new PLYExporter();
-    exporter.parse(
-      this.buildExportScene(),
-      (result) => {
-        if (result instanceof ArrayBuffer) {
-          downloadArrayBuffer(result, `${this.exportName}.ply`);
-        } else {
-          downloadStr(result, `${this.exportName}.ply`);
-        }
-      },
-      { binary: true }
-    );
+    return new Promise((resolve, reject) => {
+      try {
+        new PLYExporter().parse(
+          this.buildExportScene(),
+          (result) => {
+            if (result instanceof ArrayBuffer) {
+              downloadArrayBuffer(result, `${this.exportName}.ply`);
+            } else {
+              downloadStr(result, `${this.exportName}.ply`);
+            }
+            resolve();
+          },
+          { binary: true }
+        );
+      } catch (e) {
+        reject(e);
+      }
+    });
   }
 }
 

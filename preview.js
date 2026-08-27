@@ -115,10 +115,14 @@ void main() {
 }`;
 
 class PathPreview {
-  constructor(ssao, { radius = 0.042, spotRadius = 0.15, segments = 400 } = {}) {
+  constructor(
+    ssao,
+    { radius = 0.042, spotRadius = 0.15, segments = 400, lift = 0.12 } = {}
+  ) {
     this.group = new Group();
     this.group.visible = false;
     this.radius = radius;
+    this.lift = lift;
     this.spotRadius = spotRadius;
     this.segments = segments;
     this.box = new Box3();
@@ -185,12 +189,9 @@ class PathPreview {
       return false;
     }
 
-    this.tube = this.add(
-      new Mesh(
-        new TubeGeometry(path, this.segments, this.radius, 8, true),
-        this.material
-      )
-    );
+    const tube = new TubeGeometry(path, this.segments, this.radius, 8, true);
+    tube.translate(0, this.lift, 0);
+    this.tube = this.add(new Mesh(tube, this.material));
 
     for (const p of spots) {
       const marker = this.add(new Mesh(this.spotGeometry, this.material));

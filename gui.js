@@ -34,6 +34,7 @@ const defaults = {
   previewPath: false,
   palette: false,
   ui: true,
+  format: "ply",
 };
 
 function createGuiParams() {
@@ -51,6 +52,7 @@ function syncQuery(params) {
 
 function buildGui(app, {
   onSnapshot,
+  onExport,
   areaLabel,
   sourceLabel,
   map,
@@ -208,7 +210,10 @@ function buildGui(app, {
     banking: params.banking(),
     preview: params.previewPath(),
   });
-  const liveFlight = () => onFlyUpdate(flightOptions());
+  const liveFlight = () => {
+    onFlyUpdate(flightOptions());
+    syncQuery(params);
+  };
 
   gui.addSlider("Spots", params.spots, 3, 12, 1, {
     title: "How many high points the flight visits",
@@ -225,26 +230,40 @@ function buildGui(app, {
   });
   gui.addCheckbox("Preview path", params.previewPath, {
     title: "Draw the flight path over the model",
-    onChange: () => {
-      liveFlight();
-      syncQuery(params);
-    },
+    onChange: liveFlight,
   });
-  gui.addButtons("Camera", [
+  const cameraRow = gui.addButtons("Camera", [
     { label: "Fly over", onClick: () => onFly(flightOptions()) },
     { label: "Overview", onClick: onResetView },
   ]);
+  const flyButton = cameraRow.buttons[0];
+  const setFlying = (flying) => {
+    flyButton.textContent = flying ? "Stop" : "Fly over";
+  };
 
   gui.addText(
     `<p>Double click the landscape to stand on that spot. Then <b>WASD</b> or the
      arrow keys to walk, <b>shift</b> to run, mouse to look, <b>Esc</b> to leave.
-     <b>Tab</b> hides this panel.</p>`
+     <b>Esc</b> also lands the flight. <b>Tab</b> hides this panel.</p>`
   );
 
   gui.addSeparator();
 
-  gui.addButtons("Export", [
-    { label: "Download", onClick: () => app.bake() },
+  gui.addSegmented(
+    "Format",
+    params.format,
+    [
+      ["ply", "PLY"],
+      ["glb", "GLB"],
+    ],
+    {
+      title: "PLY keeps vertex colours; GLB opens in most 3D tools",
+      onChange: () => syncQuery(params),
+    }
+  );
+
+  const exportRow = gui.addButtons("Export", [
+    { label: "Download", onClick: () => onExport(params.format()) },
     { label: "Snapshot", onClick: onSnapshot },
     {
       label: "Share",
@@ -258,12 +277,18 @@ function buildGui(app, {
     },
   ]);
 
+  const downloadButton = exportRow.buttons[0];
+  const setExporting = (busy) => {
+    downloadButton.disabled = busy;
+    downloadButton.textContent = busy ? "Exporting…" : "Download";
+  };
+
   gui.addText(
     `<p>Made with <a target="_blank" href="https://threejs.org/">three.js</a>.
      Code on <a target="_blank" href="https://github.com/spite/BlockyEarth/">GitHub</a>.</p>`
   );
 
-  return { gui, flightOptions };
+  return { gui, flightOptions, setFlying, setExporting };
 }
 
 export { buildGui, createGuiParams, syncQuery };

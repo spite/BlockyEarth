@@ -86,7 +86,7 @@ const flight = new Flight({
     map.hideWalker();
     ssao.reset();
     if (cameraMode !== FLYING) return;
-    cameraMode = ORBIT;
+    enterMode(ORBIT);
     restoreOrbit(FLYING);
   },
 });
@@ -135,6 +135,13 @@ const ORBIT = "orbit";
 const FLYING = "flying";
 const WALKING = "walking";
 let cameraMode = ORBIT;
+let setFlying = () => {};
+let setExporting = () => {};
+
+function enterMode(next) {
+  cameraMode = next;
+  setFlying(next === FLYING);
+}
 
 function restoreOrbit(from) {
   camera.up.set(0, 1, 0);
@@ -152,13 +159,13 @@ function setCameraMode(next, options = {}) {
   const from = cameraMode;
   if (from === next) return true;
 
-  cameraMode = next;
+  enterMode(next);
   if (from === FLYING) flight.stop();
   else if (from === WALKING) walker.exit();
 
   if (next === FLYING) {
     if (!applyFlight(options)) {
-      cameraMode = ORBIT;
+      enterMode(ORBIT);
       if (from !== ORBIT) restoreOrbit(from);
       snackbar.error("Not enough distinct high points here to build a path.");
       return false;
@@ -199,6 +206,12 @@ function applyUi() {
     map.frameArea(app.area);
   }
 }
+
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (cameraMode !== FLYING) return;
+  setCameraMode(ORBIT);
+});
 
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Tab") return;
@@ -252,7 +265,7 @@ const walker = new Walker({
     map.hideWalker();
     ssao.reset();
     if (cameraMode !== WALKING) return;
-    cameraMode = ORBIT;
+    enterMode(ORBIT);
     restoreOrbit(WALKING);
   },
 });
@@ -282,8 +295,28 @@ renderer.domElement.addEventListener("pointerdown", () => {
   if (walker.active && !walker.pointerLocked) walker.lock();
 });
 
-const { flightOptions } = buildGui(app, {
+const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
+
+async function exportModel(format) {
+  setExporting(true);
+  await nextFrame();
+  await nextFrame();
+  try {
+    await app.bake(format);
+  } catch (e) {
+    snackbar.error(`Export failed: ${e.message}`);
+  } finally {
+    setExporting(false);
+  }
+}
+
+const {
+  flightOptions,
+  setFlying: setFlyingLabel,
+  setExporting: setExportingLabel,
+} = buildGui(app, {
   onSnapshot: () => capture(),
+  onExport: exportModel,
   areaLabel,
   sourceLabel,
   map,
@@ -291,6 +324,9 @@ const { flightOptions } = buildGui(app, {
   onFlyUpdate: updateFlight,
   onResetView: resetView,
 });
+
+setFlying = setFlyingLabel;
+setExporting = setExportingLabel;
 
 applyUi();
 
@@ -340,7 +376,8 @@ function readHash() {
   if (
     !Number.isFinite(area.lat) ||
     !Number.isFinite(area.lng) ||
-    Math.abs(area.lat) > 90
+    Math.abs(area.lat) > 90 ||
+    Math.abs(area.lng) > 180
   ) {
     return null;
   }
